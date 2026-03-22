@@ -256,7 +256,7 @@ function startContextReaper() {
             // Protect against deleting a newer context if the job id gets reused.
             if (!contextClosed) {
               logger.warn(
-                `[Crawler] Timed out closing stale context for job ${id} — keeping in active set for retry`,
+                `[Crawler] Timed out closing stale context for job ${id} - keeping in active set for retry`,
               );
               return;
             }
@@ -637,7 +637,7 @@ async function crawlPage(
             // to prevent pages from hanging during crawl.
             nextPage.on("dialog", (dialog) => {
               dialog.dismiss().catch(() => {
-                // Ignore errors — the dialog may have already been closed.
+                // Ignore errors - the dialog may have already been closed.
               });
             });
 
@@ -694,7 +694,7 @@ async function crawlPage(
               "abort",
               () => {
                 nextPage.unrouteAll({ behavior: "ignoreErrors" }).catch(() => {
-                  // Ignore errors — the page may already be closed.
+                  // Ignore errors - the page may already be closed.
                 });
               },
               { once: true },
@@ -782,6 +782,19 @@ async function crawlPage(
         logger.info(
           `[Crawler][${jobId}] Finished waiting for the page to load.`,
         );
+
+        if (serverConfig.crawler.postNavigationWaitMs > 0) {
+          logger.info(
+            `[Crawler][${jobId}] Waiting an additional ${serverConfig.crawler.postNavigationWaitMs}ms before capturing the page.`,
+          );
+
+          await Promise.race([
+            activePage.waitForTimeout(serverConfig.crawler.postNavigationWaitMs),
+            abortPromise(abortSignal),
+          ]);
+
+          abortSignal.throwIfAborted();
+        }
 
         const [htmlContent, screenshot, pdf] = await withSpan(
           tracer,
@@ -998,7 +1011,7 @@ async function crawlPage(
               activeContexts.delete(jobId);
             } else {
               logger.warn(
-                `[Crawler][${jobId}] context.close() timed out — leaving in active set for reaper`,
+                `[Crawler][${jobId}] context.close() timed out - leaving in active set for reaper`,
               );
             }
 
