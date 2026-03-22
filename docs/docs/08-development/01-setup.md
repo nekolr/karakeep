@@ -10,7 +10,7 @@ For the fastest way to get started with development, use the one-command setup s
 
 This script will automatically:
 - Start Meilisearch in Docker (on port 7700)
-- Start headless Chrome in Docker (on port 9222) 
+- Build and start an Ubuntu desktop Chrome container in Docker
 - Install dependencies with `pnpm install` if needed
 - Start both the web app and workers in parallel
 - Provide cleanup when you stop with Ctrl+C
@@ -23,6 +23,7 @@ The script will output the running services:
 - Web app: http://localhost:3000
 - Meilisearch: http://localhost:7700  
 - Chrome debugger: http://localhost:9222
+- Chrome desktop: http://localhost:6080/vnc.html
 
 Press Ctrl+C to stop all services and clean up Docker containers.
 
@@ -101,7 +102,13 @@ Mount persistent volume if you want to keep index data across restarts. You can 
 
 #### Chrome
 
-The worker app will automatically start headless chrome on startup for crawling pages. You don't need to do anything there.
+The worker app talks to Chrome through the DevTools endpoint exposed by `BROWSER_WEB_URL`.
+
+The default Docker-based setup now uses a single Ubuntu desktop Chrome container that exposes:
+- `9222` for Chrome DevTools Protocol (used by Karakeep)
+- `6080` for noVNC access to the desktop browser
+
+You don't need to do anything manually if you use `./start-dev.sh` or the provided Docker Compose files.
 
 ### Web App
 
@@ -188,9 +195,17 @@ In dev mode, opening and closing the plugin menu should reload the code.
 
 If the manual setup is too much hassle for you. You can use a docker based dev environment by running `docker compose -f docker/docker-compose.dev.yml up` in the root of the repo. This setup wasn't super reliable for me though.
 
+Once it starts, you can inspect the browser container at `http://localhost:6080/vnc.html` while Karakeep keeps using `http://chrome:9222` internally for crawling.
+
+The desktop browser image is built from Ubuntu and uses the Aliyun Ubuntu mirror by default during `apt` installs to speed up builds in mainland China.
+
 
 [^1]: [nvm](https://github.com/nvm-sh/nvm) is a node version manager. You can install it following [these
 instructions](https://github.com/nvm-sh/nvm?tab=readme-ov-file#installing-and-updating).
 
 [^2]: [corepack](https://nodejs.org/api/corepack.html) is an experimental tool to help with managing versions of your
 package managers.
+
+
+
+

@@ -31,6 +31,8 @@ Check the logs of the container and this will usually tell you what's wrong. Com
 
 Check the logs of the container and this will usually tell you what's wrong. Common problems are:
 1. You changed the name of the chrome container but didn't change the `BROWSER_WEB_URL` env variable.
+2. Your browser container is up, but nothing is listening on `9222`. Karakeep only needs a working Chrome DevTools endpoint, even if the browser itself is running in a full Ubuntu desktop container.
+3. If you're using the new desktop browser image, open `http://localhost:6080/vnc.html` (or your published noVNC port) and confirm Chrome is actually running.
 
 ## Upgrading Meilisearch - Migrating the Meilisearch db version
 
@@ -44,3 +46,4 @@ Luckily we can easily workaround this:
 5. When the reindexing has finished, Meilisearch should be working as usual.
 
 If you run into issues, the official documentation can be found [there](https://www.meilisearch.com/docs/learn/update_and_migration/updating).
+

@@ -20,15 +20,24 @@ services:
       # If you want to mount a custom directory, change the volume mapping above instead.
       DATA_DIR: /data # DON'T CHANGE THIS
   chrome:
-    image: gcr.io/zenika-hub/alpine-chrome:124
+    image: karakeep/chrome-desktop:${KARAKEEP_CHROME_TAG:-local}
+    build:
+      context: ./chrome-desktop
+      args:
+        UBUNTU_APT_MIRROR: ${UBUNTU_APT_MIRROR:-http://mirrors.aliyun.com/ubuntu/}
     restart: unless-stopped
-    command:
-      - --no-sandbox
-      - --disable-gpu
-      - --disable-dev-shm-usage
-      - --remote-debugging-address=0.0.0.0
-      - --remote-debugging-port=9222
-      - --hide-scrollbars
+    shm_size: 1gb
+    cap_add:
+      - SYS_ADMIN
+    ports:
+      - "${KARAKEEP_CHROME_DESKTOP_PORT:-127.0.0.1:6080:6080}"
+      - "${KARAKEEP_CHROME_DEBUG_PORT:-127.0.0.1:9222:9222}"
+    environment:
+      CHROME_REMOTE_DEBUGGING_PORT: 9222
+      CHROME_PROXY_SERVER: ${CHROME_PROXY_SERVER:-}
+      CHROME_PROXY_BYPASS_LIST: ${CHROME_PROXY_BYPASS_LIST:-}
+      CHROME_PROXY_PAC_URL: ${CHROME_PROXY_PAC_URL:-}
+      CHROME_DISABLE_SANDBOX: ${CHROME_DISABLE_SANDBOX:-false}
   meilisearch:
     image: getmeili/meilisearch:v1.37.0
     restart: unless-stopped
@@ -42,3 +51,7 @@ services:
 volumes:
   meilisearch:
   data:
+
+
+
+
