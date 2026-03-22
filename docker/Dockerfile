@@ -1,7 +1,20 @@
 ################# Monolith Builder ##############
-FROM rust:1-bookworm AS monolith_builder
+ARG DEBIAN_APT_MIRROR=http://deb.debian.org/debian
+ARG DEBIAN_SECURITY_APT_MIRROR=http://deb.debian.org/debian-security
+ARG NPM_REGISTRY=https://registry.npmjs.org/
+ARG CARGO_REGISTRIES_CRATES_IO_INDEX=https://github.com/rust-lang/crates.io-index
+ARG CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse
 
-RUN apt-get update \
+FROM rust:1-bookworm AS monolith_builder
+ARG DEBIAN_APT_MIRROR
+ARG DEBIAN_SECURITY_APT_MIRROR
+ARG CARGO_REGISTRIES_CRATES_IO_INDEX
+ARG CARGO_REGISTRIES_CRATES_IO_PROTOCOL
+ENV CARGO_REGISTRIES_CRATES_IO_INDEX=${CARGO_REGISTRIES_CRATES_IO_INDEX}
+ENV CARGO_REGISTRIES_CRATES_IO_PROTOCOL=${CARGO_REGISTRIES_CRATES_IO_PROTOCOL}
+
+RUN sed -i "s|http://deb.debian.org/debian|${DEBIAN_APT_MIRROR}|g; s|http://security.debian.org/debian-security|${DEBIAN_SECURITY_APT_MIRROR}|g" /etc/apt/sources.list.d/debian.sources \
+    && apt-get update \
     && apt-get install --no-install-recommends -y \
         libssl-dev \
         pkg-config \
@@ -10,15 +23,20 @@ RUN apt-get update \
 
 ################# Base Builder ##############
 FROM node:24-slim AS base
+ARG DEBIAN_APT_MIRROR
+ARG DEBIAN_SECURITY_APT_MIRROR
+ARG NPM_REGISTRY
+ENV NPM_CONFIG_REGISTRY=${NPM_REGISTRY}
 
 WORKDIR /app
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
 
 # https://github.com/karakeep-app/karakeep/issues/967
-RUN npm install -g corepack@0.31.0 && corepack enable
+RUN npm install -g corepack@0.31.0 && corepack enable && pnpm config set registry ${NPM_REGISTRY}
 
-RUN apt-get update \
+RUN sed -i "s|http://deb.debian.org/debian|${DEBIAN_APT_MIRROR}|g; s|http://security.debian.org/debian-security|${DEBIAN_SECURITY_APT_MIRROR}|g" /etc/apt/sources.list.d/debian.sources \
+    && apt-get update \
     && apt-get install --no-install-recommends -y \
         make \
         g++ \
@@ -76,11 +94,15 @@ RUN (cd apps/mcp && pnpm build)
 ################# The All-in-one builder ##############
 
 FROM node:24-slim AS aio_builder
+ARG DEBIAN_APT_MIRROR
+ARG DEBIAN_SECURITY_APT_MIRROR
+ARG NPM_REGISTRY
 LABEL org.opencontainers.image.source="https://github.com/karakeep-app/karakeep"
 WORKDIR /app
 
 ARG SERVER_VERSION=nightly
 ENV SERVER_VERSION=${SERVER_VERSION}
+ENV NPM_CONFIG_REGISTRY=${NPM_REGISTRY}
 
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
@@ -93,7 +115,8 @@ ARG S6_OVERLAY_VERSION=3.2.1.0
 ARG TARGETARCH
 
 # Install wget and xz-utils needed for s6-overlay
-RUN apt-get update \
+RUN sed -i "s|http://deb.debian.org/debian|${DEBIAN_APT_MIRROR}|g; s|http://security.debian.org/debian-security|${DEBIAN_SECURITY_APT_MIRROR}|g" /etc/apt/sources.list.d/debian.sources \
+    && apt-get update \
     && apt-get install --no-install-recommends -y \
         ca-certificates \
         wget \
@@ -117,7 +140,8 @@ COPY --chmod=755 ./docker/root/etc/s6-overlay /etc/s6-overlay
 ######################
 # Install runtime deps
 ######################
-RUN apt-get update \
+RUN sed -i "s|http://deb.debian.org/debian|${DEBIAN_APT_MIRROR}|g; s|http://security.debian.org/debian-security|${DEBIAN_SECURITY_APT_MIRROR}|g" /etc/apt/sources.list.d/debian.sources \
+    && apt-get update \
     && apt-get install --no-install-recommends -y \
         curl \
         graphicsmagick \
@@ -212,6 +236,7 @@ COPY --from=base /app/apps/cli/dist/index.mjs apps/cli/index.mjs
 WORKDIR /app/apps/cli
 
 ARG SERVER_VERSION=nightly
+ARG NPM_REGISTRY
 ENV SERVER_VERSION=${SERVER_VERSION}
 
 ENTRYPOINT ["node", "index.mjs"]

@@ -7,6 +7,11 @@ services:
       target: aio
       args:
         SERVER_VERSION: ${KARAKEEP_VERSION:-release}
+        DEBIAN_APT_MIRROR: ${DEBIAN_APT_MIRROR:-http://mirrors.aliyun.com/debian}
+        DEBIAN_SECURITY_APT_MIRROR: ${DEBIAN_SECURITY_APT_MIRROR:-http://mirrors.aliyun.com/debian-security}
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmmirror.com/}
+        CARGO_REGISTRIES_CRATES_IO_INDEX: ${CARGO_REGISTRIES_CRATES_IO_INDEX:-https://rsproxy.cn/crates.io-index}
+        CARGO_REGISTRIES_CRATES_IO_PROTOCOL: ${CARGO_REGISTRIES_CRATES_IO_PROTOCOL:-sparse}
     restart: unless-stopped
     volumes:
       # By default, the data is stored in a docker volume called "data".
