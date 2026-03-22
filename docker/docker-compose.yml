@@ -1,6 +1,12 @@
 services:
   web:
-    image: ghcr.io/karakeep-app/karakeep:${KARAKEEP_VERSION:-release}
+    image: karakeep/web:${KARAKEEP_WEB_TAG:-local}
+    build:
+      dockerfile: docker/Dockerfile
+      context: ..
+      target: aio
+      args:
+        SERVER_VERSION: ${KARAKEEP_VERSION:-release}
     restart: unless-stopped
     volumes:
       # By default, the data is stored in a docker volume called "data".
