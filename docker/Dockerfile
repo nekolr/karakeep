@@ -136,6 +136,7 @@ RUN tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz \
 
 # Copy the s6-overlay config
 COPY --chmod=755 ./docker/root/etc/s6-overlay /etc/s6-overlay
+RUN find /etc/s6-overlay -type f -exec sed -i 's/\r$//' {} +
 
 ######################
 # Install runtime deps
