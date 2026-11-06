@@ -33,6 +33,7 @@ ARG DEBIAN_APT_MIRROR
 ARG DEBIAN_SECURITY_APT_MIRROR
 ARG NPM_REGISTRY
 ENV NPM_CONFIG_REGISTRY=${NPM_REGISTRY}
+ENV npm_config_registry=${NPM_REGISTRY}
 ENV COREPACK_NPM_REGISTRY=${NPM_REGISTRY}
 
 WORKDIR /app
@@ -41,7 +42,9 @@ ENV PATH="$PNPM_HOME:$PATH"
 
 # Keep Corepack current enough to verify modern pnpm release signatures.
 # Pinned so the build doesn't pick up whatever corepack was published last.
-RUN npm install -g corepack@0.36.0 && corepack enable pnpm
+RUN npm install -g corepack@0.36.0 \
+    && corepack enable pnpm \
+    && pnpm config set registry "${NPM_REGISTRY}"
 
 RUN sed -i "s|http://deb.debian.org/debian|${DEBIAN_APT_MIRROR}|g; s|http://security.debian.org/debian-security|${DEBIAN_SECURITY_APT_MIRROR}|g" /etc/apt/sources.list.d/debian.sources \
     && apt-get update \
@@ -154,7 +157,6 @@ ARG S6_OVERLAY_VERSION=3.2.1.0
 ARG S6_OVERLAY_NOARCH_SHA256=42e038a9a00fc0fef70bf0bc42f625a9c14f8ecdfe77d4ad93281edf717e10c5
 ARG S6_OVERLAY_X86_64_SHA256=8bcbc2cada58426f976b159dcc4e06cbb1454d5f39252b3bb0c778ccf71c9435
 ARG S6_OVERLAY_AARCH64_SHA256=c8fd6b1f0380d399422fc986a1e6799f6a287e2cfa24813ad0b6a4fb4fa755cc
-ARG TARGETARCH
 
 # Install wget and xz-utils needed for s6-overlay
 RUN sed -i "s|http://deb.debian.org/debian|${DEBIAN_APT_MIRROR}|g; s|http://security.debian.org/debian-security|${DEBIAN_SECURITY_APT_MIRROR}|g" /etc/apt/sources.list.d/debian.sources \
@@ -165,10 +167,11 @@ RUN sed -i "s|http://deb.debian.org/debian|${DEBIAN_APT_MIRROR}|g; s|http://secu
         xz-utils \
     && rm -rf /var/lib/apt/lists/*
 
-RUN case ${TARGETARCH} in \
+RUN S6_TARGET_ARCH="$(dpkg --print-architecture)"; \
+    case "$S6_TARGET_ARCH" in \
             "amd64")  S6_ARCH=x86_64;  S6_ARCH_SHA256=${S6_OVERLAY_X86_64_SHA256}  ;; \
             "arm64")  S6_ARCH=aarch64; S6_ARCH_SHA256=${S6_OVERLAY_AARCH64_SHA256} ;; \
-            *) echo "Unsupported arch: ${TARGETARCH}" && exit 1 ;; \
+            *) echo "Unsupported arch: $S6_TARGET_ARCH" && exit 1 ;; \
         esac \
     && S6_URL=https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION} \
     && wget -q "${S6_URL}/s6-overlay-noarch.tar.xz" -O /tmp/s6-overlay-noarch.tar.xz \
@@ -180,7 +183,9 @@ RUN case ${TARGETARCH} in \
     && rm -f /tmp/s6-overlay-noarch.tar.xz /tmp/s6-overlay-${S6_ARCH}.tar.xz
 
 # Copy the s6-overlay config
-COPY --chmod=755 ./docker/root/etc/s6-overlay /etc/s6-overlay
+COPY ./docker/root/etc/s6-overlay /etc/s6-overlay
+RUN find /etc/s6-overlay -type d -exec chmod 755 {} + \
+    && find /etc/s6-overlay -type f -exec chmod 755 {} +
 
 ######################
 # Install runtime deps
@@ -201,11 +206,11 @@ RUN sed -i "s|http://deb.debian.org/debian|${DEBIAN_APT_MIRROR}|g; s|http://secu
 ARG YTDLP_VERSION=2026.10.26
 ARG YTDLP_LINUX_SHA256=767ba9dce7052aa196f8b12652f433d76de128ba168966fa84b6394d5e6c6795
 ARG YTDLP_LINUX_AARCH64_SHA256=e87e9533e89fe5889abaa21f5114dfe7756d6aa6219b83551add04d48b18e483
-ARG TARGETARCH
-RUN case ${TARGETARCH} in \
+RUN YTDLP_TARGET_ARCH="$(dpkg --print-architecture)"; \
+    case "$YTDLP_TARGET_ARCH" in \
         "amd64")  YTDLP_FILE=yt-dlp_linux;         YTDLP_SHA256=${YTDLP_LINUX_SHA256} ;; \
         "arm64")  YTDLP_FILE=yt-dlp_linux_aarch64; YTDLP_SHA256=${YTDLP_LINUX_AARCH64_SHA256} ;; \
-        *) echo "Unsupported arch: ${TARGETARCH}" && exit 1 ;; \
+        *) echo "Unsupported arch: $YTDLP_TARGET_ARCH" && exit 1 ;; \
     esac \
     && curl -fsSL https://github.com/yt-dlp/yt-dlp/releases/download/${YTDLP_VERSION}/${YTDLP_FILE} -o /usr/local/bin/yt-dlp \
     && echo "${YTDLP_SHA256}  /usr/local/bin/yt-dlp" | sha256sum -c - \
