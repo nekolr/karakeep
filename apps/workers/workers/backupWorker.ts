@@ -6,9 +6,7 @@ import { join } from "node:path";
 import { createId } from "@paralleldrive/cuid2";
 import archiver from "archiver";
 import { and, eq, inArray } from "drizzle-orm";
-import { workerStatsCounter } from "metrics";
 import cron from "node-cron";
-import { withWorkerTracing } from "workerTracing";
 
 import type { ZBackupRequest } from "@karakeep/shared-server";
 import { db } from "@karakeep/db";
@@ -18,8 +16,12 @@ import {
   bookmarksInLists,
   users,
 } from "@karakeep/db/schema";
-import { BackupQueue, QuotaService } from "@karakeep/shared-server";
-import { saveAssetFromFile } from "@karakeep/shared/assetdb";
+import {
+  addLogFields,
+  BackupQueue,
+  QuotaService,
+  saveAssetFromFile,
+} from "@karakeep/shared-server";
 import {
   toExportFormat,
   toExportListFormat,
@@ -30,7 +32,9 @@ import { AuthedContext } from "@karakeep/trpc";
 import { Backup } from "@karakeep/trpc/models/backups";
 import { List } from "@karakeep/trpc/models/lists";
 
+import { workerStatsCounter } from "../metrics";
 import { buildImpersonatingAuthedContext } from "../trpc";
+import { withWorkerEventLog, withWorkerTracing } from "../workerTracing";
 import { fetchBookmarksInBatches } from "./utils/fetchBookmarks";
 
 // Run daily at midnight UTC
@@ -117,7 +121,10 @@ export class BackupWorker {
     const worker = (await getQueueClient())!.createRunner<ZBackupRequest>(
       BackupQueue,
       {
-        run: withWorkerTracing("backupWorker.run", run),
+        run: withWorkerTracing(
+          "backupWorker.run",
+          withWorkerEventLog("backupWorker.run", run),
+        ),
         onComplete: async (job) => {
           workerStatsCounter.labels("backup", "completed").inc();
           const jobId = job.id;
@@ -167,6 +174,7 @@ async function run(req: DequeuedJob<ZBackupRequest>) {
   const jobId = req.id;
   const userId = req.data.userId;
   const backupId = req.data.backupId;
+  addLogFields<"backupWorker.run">({ "user.id": userId });
 
   logger.info(`[backup][${jobId}] Starting backup for user ${userId} ...`);
 
@@ -205,12 +213,16 @@ async function run(req: DequeuedJob<ZBackupRequest>) {
     backup = backupInstance;
     // Ensure backupId is attached to job data so error handler can mark failure.
     req.data.backupId = backupInstance.id;
+    addLogFields<"backupWorker.run">({ "backup.id": backupInstance.id });
 
     const bookmarkCount = await streamBookmarksToJsonFile(
       ctx,
       tempJsonPath,
       jobId,
     );
+    addLogFields<"backupWorker.run">({
+      "backup.bookmark_count": bookmarkCount,
+    });
 
     logger.info(
       `[backup][${jobId}] Streamed ${bookmarkCount} bookmarks to JSON file`,
@@ -223,6 +235,10 @@ async function run(req: DequeuedJob<ZBackupRequest>) {
     const fileStats = await stat(tempZipPath);
     const compressedSize = fileStats.size;
     const jsonStats = await stat(tempJsonPath);
+    addLogFields<"backupWorker.run">({
+      "backup.uncompressed_size": jsonStats.size,
+      "backup.compressed_size": compressedSize,
+    });
 
     logger.info(
       `[backup][${jobId}] Compressed ${jsonStats.size} bytes to ${compressedSize} bytes`,

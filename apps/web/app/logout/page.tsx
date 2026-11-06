@@ -14,12 +14,9 @@ export default function Logout() {
     removeItem: (k: string) => localStorage.removeItem(k),
   });
   useEffect(() => {
-    signOut({
-      redirect: false,
-      callbackUrl: "/",
-    }).then((d) => {
+    signOut().then(() => {
       clearHistory();
-      router.push(d.url);
+      router.push("/");
     });
   }, []);
   return <span />;

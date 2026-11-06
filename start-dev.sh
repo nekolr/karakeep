@@ -25,17 +25,23 @@ fi
 # Start Meilisearch if not already running
 if ! port_in_use 7700; then
     echo "Starting Meilisearch..."
-    docker run -d -p 7700:7700 --name karakeep-meilisearch getmeili/meilisearch:v1.37.0
+    docker run -d -p 7700:7700 --name karakeep-meilisearch getmeili/meilisearch:v1.55.0
 else
     echo "Meilisearch is already running on port 7700"
 fi
 
 # Start Chrome if not already running
 if ! port_in_use 9222; then
-    echo "Building Ubuntu desktop Chrome image..."
-    docker build --build-arg UBUNTU_APT_MIRROR="${UBUNTU_APT_MIRROR:-http://mirrors.aliyun.com/ubuntu/}" -t karakeep/chrome-desktop:local -f docker/chrome-desktop/Dockerfile docker/chrome-desktop
-    echo "Starting desktop Chrome..."
-    docker run -d -p 9222:9222 -p 6080:6080 --shm-size=1g -e CHROME_PROXY_SERVER="${CHROME_PROXY_SERVER:-}" -e CHROME_PROXY_BYPASS_LIST="${CHROME_PROXY_BYPASS_LIST:-}" -e CHROME_PROXY_PAC_URL="${CHROME_PROXY_PAC_URL:-}" --name karakeep-chrome karakeep/chrome-desktop:local
+    echo "Starting headless Chrome..."
+    docker run -d --init \
+        -p 127.0.0.1:9222:9222 \
+        --name karakeep-chrome \
+        ghcr.io/karakeep-app/karakeep-chrome:release \
+        --disable-gpu \
+        --disable-dev-shm-usage \
+        --hide-scrollbars \
+        --disable-blink-features=AutomationControlled \
+        --window-size=1440,900
 else
     echo "Chrome is already running on port 9222"
 fi
@@ -94,10 +100,7 @@ echo "Development environment is running!"
 echo "Web app: http://localhost:3000"
 echo "Meilisearch: http://localhost:7700"
 echo "Chrome debugger: http://localhost:9222"
-echo "Chrome desktop (noVNC): http://localhost:6080/vnc.html"
 echo "Press Ctrl+C to stop all services"
 
 # Wait for user interrupt
 wait 
-
-

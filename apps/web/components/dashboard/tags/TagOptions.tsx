@@ -9,10 +9,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useShowArchived } from "@/components/utils/useShowArchived";
 import { useTranslation } from "@/lib/i18n/client";
-import { Combine, Square, SquareCheck, Trash2 } from "lucide-react";
+import { Combine, Pencil, Square, SquareCheck, Trash2 } from "lucide-react";
 
 import DeleteTagConfirmationDialog from "./DeleteTagConfirmationDialog";
 import { MergeTagModal } from "./MergeTagModal";
+import { RenameTagModal } from "./RenameTagModal";
 
 export function TagOptions({
   tag,
@@ -26,6 +27,7 @@ export function TagOptions({
 
   const [deleteTagDialogOpen, setDeleteTagDialogOpen] = useState(false);
   const [mergeTagDialogOpen, setMergeTagDialogOpen] = useState(false);
+  const [renameTagDialogOpen, setRenameTagDialogOpen] = useState(false);
 
   return (
     <DropdownMenu>
@@ -39,16 +41,22 @@ export function TagOptions({
         setOpen={setMergeTagDialogOpen}
         tag={tag}
       />
+      <RenameTagModal
+        tag={tag}
+        open={renameTagDialogOpen}
+        setOpen={setRenameTagDialogOpen}
+      />
       <DropdownMenuTrigger asChild>{children}</DropdownMenuTrigger>
       <DropdownMenuContent>
-        <DropdownMenuItem
-          className="flex gap-2"
-          onClick={() => setMergeTagDialogOpen(true)}
-        >
+        <DropdownMenuItem onClick={() => setRenameTagDialogOpen(true)}>
+          <Pencil className="size-4" />
+          <span>{t("actions.rename")}</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setMergeTagDialogOpen(true)}>
           <Combine className="size-4" />
           <span>{t("actions.merge")}</span>
         </DropdownMenuItem>
-        <DropdownMenuItem className="flex gap-2" onClick={onClickShowArchived}>
+        <DropdownMenuItem onClick={onClickShowArchived}>
           {showArchived ? (
             <SquareCheck className="size-4" />
           ) : (
@@ -56,10 +64,7 @@ export function TagOptions({
           )}
           <span>{t("actions.toggle_show_archived")}</span>
         </DropdownMenuItem>
-        <DropdownMenuItem
-          className="flex gap-2"
-          onClick={() => setDeleteTagDialogOpen(true)}
-        >
+        <DropdownMenuItem onClick={() => setDeleteTagDialogOpen(true)}>
           <Trash2 className="size-4" />
           <span>{t("actions.delete")}</span>
         </DropdownMenuItem>

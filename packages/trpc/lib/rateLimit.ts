@@ -2,7 +2,10 @@ import { TRPCError } from "@trpc/server";
 
 import type { RateLimitConfig } from "@karakeep/shared/ratelimiting";
 import serverConfig from "@karakeep/shared/config";
-import { getRateLimitClient } from "@karakeep/shared/ratelimiting";
+import {
+  getRateLimitClient,
+  getRateLimitIdentity,
+} from "@karakeep/shared/ratelimiting";
 
 /**
  * Create a tRPC middleware for rate limiting
@@ -12,16 +15,24 @@ import { getRateLimitClient } from "@karakeep/shared/ratelimiting";
 export function createRateLimitMiddleware<T>(config: RateLimitConfig) {
   return async function rateLimitMiddleware(opts: {
     path: string;
-    ctx: { req: { ip: string | null } };
+    ctx: {
+      req: { ip: string | null };
+      user?: { id?: string | null } | null;
+      auth?: { type: string } | null;
+    };
     next: () => Promise<T>;
   }) {
     if (!serverConfig.rateLimiting.enabled) {
       return opts.next();
     }
 
-    const ip = opts.ctx.req.ip;
+    const identity = getRateLimitIdentity({
+      userId: opts.ctx.user?.id,
+      ip: opts.ctx.req.ip,
+      internal: opts.ctx.auth?.type === "internal",
+    });
 
-    if (!ip) {
+    if (!identity) {
       return opts.next();
     }
 
@@ -32,8 +43,7 @@ export function createRateLimitMiddleware<T>(config: RateLimitConfig) {
       return opts.next();
     }
 
-    // Build the rate limiting key from IP and path
-    const key = `${ip}:${opts.path}`;
+    const key = `${identity}:${opts.path}`;
     const result = await client.checkRateLimit(config, key);
 
     if (!result.allowed) {

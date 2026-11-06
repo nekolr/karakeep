@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 
@@ -5,6 +6,7 @@ import {
   BookmarkTypes,
   zNewBookmarkRequestSchema,
 } from "@karakeep/shared/types/bookmarks";
+import { bookmarkLists } from "@karakeep/db/schema";
 import { zNewBookmarkListSchema } from "@karakeep/shared/types/lists";
 
 import type { APICallerType, CustomTestContext } from "../testUtils";
@@ -17,6 +19,26 @@ async function createTestBookmark(api: APICallerType) {
   };
   const createdBookmark = await api.bookmarks.createBookmark(newBookmarkInput);
   return createdBookmark.id;
+}
+
+async function shareList(
+  ownerApi: APICallerType,
+  collaboratorApi: APICallerType,
+  listId: string,
+  role: "viewer" | "editor",
+) {
+  const collaborator = await collaboratorApi.users.whoami();
+  const { invitationId } = await ownerApi.lists.addCollaborator({
+    listId,
+    email: collaborator.email!,
+    role,
+  });
+  await collaboratorApi.lists.acceptInvitation({ invitationId });
+}
+
+async function getRuleByName(api: APICallerType, name: string) {
+  const { rules } = await api.rules.list();
+  return rules.find((rule) => rule.name === name);
 }
 
 beforeEach<CustomTestContext>(defaultBeforeEach(true));
@@ -133,6 +155,83 @@ describe("Lists Routes", () => {
     ).rejects.toThrow(/List not found/);
   });
 
+  test<CustomTestContext>("merge doesn't move collaborators' bookmarks", async ({
+    apiCallers,
+  }) => {
+    const [ownerApi, editorApi, viewerApi] = apiCallers;
+
+    const sourceList = await ownerApi.lists.create({
+      name: "Source List",
+      type: "manual",
+      icon: "📚",
+    });
+    const targetList = await ownerApi.lists.create({
+      name: "Target List",
+      type: "manual",
+      icon: "📖",
+    });
+    await shareList(ownerApi, editorApi, sourceList.id, "editor");
+    await shareList(ownerApi, viewerApi, targetList.id, "viewer");
+
+    const ownerBookmarkId = await createTestBookmark(ownerApi);
+    const editorBookmarkId = await createTestBookmark(editorApi);
+    await ownerApi.lists.addToList({
+      listId: sourceList.id,
+      bookmarkId: ownerBookmarkId,
+    });
+    await editorApi.lists.addToList({
+      listId: sourceList.id,
+      bookmarkId: editorBookmarkId,
+    });
+
+    await ownerApi.lists.merge({
+      sourceId: sourceList.id,
+      targetId: targetList.id,
+      deleteSourceAfterMerge: true,
+    });
+
+    const { bookmarks } = await viewerApi.bookmarks.getBookmarks({
+      listId: targetList.id,
+    });
+    expect(bookmarks.map((b) => b.id)).toEqual([ownerBookmarkId]);
+    await expect(() =>
+      viewerApi.bookmarks.getBookmark({ bookmarkId: editorBookmarkId }),
+    ).rejects.toThrow(/Bookmark not found/);
+  });
+
+  test<CustomTestContext>("merge a list with only collaborators' bookmarks", async ({
+    apiCallers,
+  }) => {
+    const [ownerApi, editorApi] = apiCallers;
+
+    const sourceList = await ownerApi.lists.create({
+      name: "Source List",
+      type: "manual",
+      icon: "📚",
+    });
+    const targetList = await ownerApi.lists.create({
+      name: "Target List",
+      type: "manual",
+      icon: "📖",
+    });
+    await shareList(ownerApi, editorApi, sourceList.id, "editor");
+    await editorApi.lists.addToList({
+      listId: sourceList.id,
+      bookmarkId: await createTestBookmark(editorApi),
+    });
+
+    await ownerApi.lists.merge({
+      sourceId: sourceList.id,
+      targetId: targetList.id,
+      deleteSourceAfterMerge: false,
+    });
+
+    const { bookmarks } = await ownerApi.bookmarks.getBookmarks({
+      listId: targetList.id,
+    });
+    expect(bookmarks).toHaveLength(0);
+  });
+
   test<CustomTestContext>("delete list", async ({ apiCallers }) => {
     const api = apiCallers[0].lists;
 
@@ -155,6 +254,144 @@ describe("Lists Routes", () => {
     await expect(() =>
       api.delete({ listId: "non-existent-id" }),
     ).rejects.toThrow(/List not found/);
+  });
+
+  describe("rule cleanup after list deletion", () => {
+    test<CustomTestContext>("deletes rules that has only the deleted list in their event", async ({
+      apiCallers,
+    }) => {
+      const api = apiCallers[0];
+      const list = await api.lists.create({
+        name: "Deleted List",
+        type: "manual",
+        icon: "📚",
+      });
+
+      await api.rules.create({
+        name: "Only Deleted List Rule",
+        description: "",
+        enabled: true,
+        event: { type: "addedToList", listIds: [list.id] },
+        condition: { type: "alwaysTrue" },
+        actions: [{ type: "favouriteBookmark" }],
+      });
+
+      await api.lists.delete({ listId: list.id });
+
+      expect(
+        await getRuleByName(api, "Only Deleted List Rule"),
+      ).toBeUndefined();
+    });
+
+    test<CustomTestContext>("removes deleted list from multi-list rules", async ({
+      apiCallers,
+    }) => {
+      const api = apiCallers[0];
+      const deletedList = await api.lists.create({
+        name: "Deleted List",
+        type: "manual",
+        icon: "📚",
+      });
+      const otherList = await api.lists.create({
+        name: "Surviving List",
+        type: "manual",
+        icon: "📖",
+      });
+
+      await api.rules.create({
+        name: "Multi List Rule",
+        description: "",
+        enabled: true,
+        event: {
+          type: "addedToList",
+          listIds: [deletedList.id, otherList.id],
+        },
+        condition: { type: "alwaysTrue" },
+        actions: [{ type: "favouriteBookmark" }],
+      });
+
+      await api.lists.delete({ listId: deletedList.id });
+
+      expect(await getRuleByName(api, "Multi List Rule")).toMatchObject({
+        event: { type: "addedToList", listIds: [otherList.id] },
+      });
+    });
+
+    test<CustomTestContext>("leaves unrelated rules unchanged", async ({
+      apiCallers,
+    }) => {
+      const api = apiCallers[0];
+      const deletedList = await api.lists.create({
+        name: "Deleted List",
+        type: "manual",
+        icon: "📚",
+      });
+      const unrelatedList = await api.lists.create({
+        name: "Unrelated List",
+        type: "manual",
+        icon: "📖",
+      });
+
+      await api.rules.create({
+        name: "Unrelated List Rule",
+        description: "",
+        enabled: true,
+        event: { type: "addedToList", listIds: [unrelatedList.id] },
+        condition: { type: "alwaysTrue" },
+        actions: [{ type: "favouriteBookmark" }],
+      });
+      await api.rules.create({
+        name: "Bookmark Rule",
+        description: "",
+        enabled: true,
+        event: { type: "bookmarkAdded" },
+        condition: { type: "alwaysTrue" },
+        actions: [{ type: "favouriteBookmark" }],
+      });
+
+      await api.lists.delete({ listId: deletedList.id });
+
+      expect(await getRuleByName(api, "Unrelated List Rule")).toMatchObject({
+        event: { type: "addedToList", listIds: [unrelatedList.id] },
+      });
+      expect(await getRuleByName(api, "Bookmark Rule")).toMatchObject({
+        event: { type: "bookmarkAdded" },
+      });
+    });
+
+    test<CustomTestContext>("cleans up removed-from-list rules", async ({
+      apiCallers,
+    }) => {
+      const api = apiCallers[0];
+      const deletedList = await api.lists.create({
+        name: "Deleted List",
+        type: "manual",
+        icon: "📚",
+      });
+      const survivingList = await api.lists.create({
+        name: "Surviving List",
+        type: "manual",
+        icon: "📖",
+      });
+
+      await api.rules.create({
+        name: "Removed From List Rule",
+        description: "",
+        enabled: true,
+        event: {
+          type: "removedFromList",
+          listIds: [deletedList.id, survivingList.id],
+        },
+        condition: { type: "alwaysTrue" },
+        actions: [{ type: "favouriteBookmark" }],
+      });
+
+      await api.lists.delete({ listId: deletedList.id });
+
+      expect(await getRuleByName(api, "Removed From List Rule")).toMatchObject({
+        event: { type: "removedFromList", listIds: [survivingList.id] },
+      });
+    });
   });
 
   test<CustomTestContext>("add and remove from list", async ({
@@ -592,6 +829,212 @@ describe("recursive delete", () => {
     expect(lists.lists.find((l) => l.id === grandparent.id)).toBeDefined();
     expect(lists.lists.find((l) => l.id === parent.id)).toBeUndefined();
     expect(lists.lists.find((l) => l.id === child.id)).toBeUndefined();
+  });
+});
+
+describe("list hierarchy validation", () => {
+  test<CustomTestContext>("rejects edits that would create a cycle", async ({
+    apiCallers,
+  }) => {
+    const api = apiCallers[0].lists;
+
+    const listA = await api.create({ name: "A", type: "manual", icon: "📂" });
+    const listB = await api.create({
+      name: "B",
+      parentId: listA.id,
+      type: "manual",
+      icon: "📂",
+    });
+    const listC = await api.create({
+      name: "C",
+      parentId: listB.id,
+      type: "manual",
+      icon: "📂",
+    });
+
+    await expect(
+      api.edit({ listId: listA.id, parentId: listB.id }),
+    ).rejects.toThrow(/descendants/);
+    await expect(
+      api.edit({ listId: listA.id, parentId: listC.id }),
+    ).rejects.toThrow(/descendants/);
+
+    // Moving a list elsewhere in the tree is still allowed
+    await api.edit({ listId: listC.id, parentId: listA.id });
+    const updated = await api.get({ listId: listC.id });
+    expect(updated.parentId).toEqual(listA.id);
+  });
+
+  test<CustomTestContext>("rejects concurrent moves that would form a cycle", async ({
+    apiCallers,
+  }) => {
+    const api = apiCallers[0].lists;
+
+    const listA = await api.create({ name: "A", type: "manual", icon: "📂" });
+    const listB = await api.create({ name: "B", type: "manual", icon: "📂" });
+
+    const results = await Promise.allSettled([
+      api.edit({ listId: listA.id, parentId: listB.id }),
+      api.edit({ listId: listB.id, parentId: listA.id }),
+    ]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((r) => r.status === "rejected")).toHaveLength(1);
+  });
+
+  test<CustomTestContext>("rejects parents owned by other users", async ({
+    apiCallers,
+  }) => {
+    const api = apiCallers[0].lists;
+    const otherList = await apiCallers[1].lists.create({
+      name: "Other user's list",
+      type: "manual",
+      icon: "📂",
+    });
+
+    await expect(
+      api.create({
+        name: "Child",
+        parentId: otherList.id,
+        type: "manual",
+        icon: "📂",
+      }),
+    ).rejects.toThrow(/Parent list not found/);
+
+    const ownList = await api.create({
+      name: "Own",
+      type: "manual",
+      icon: "📂",
+    });
+    await expect(
+      api.edit({ listId: ownList.id, parentId: otherList.id }),
+    ).rejects.toThrow(/Parent list not found/);
+
+    // Sharing the list doesn't make it a valid parent either
+    await shareList(apiCallers[1], apiCallers[0], otherList.id, "editor");
+    await expect(
+      api.edit({ listId: ownList.id, parentId: otherList.id }),
+    ).rejects.toThrow(/Parent list not found/);
+  });
+
+  test<CustomTestContext>("keeps lists with legacy parent links editable", async ({
+    apiCallers,
+    db,
+  }) => {
+    const api = apiCallers[0].lists;
+    const otherList = await apiCallers[1].lists.create({
+      name: "Other user's list",
+      type: "manual",
+      icon: "📂",
+    });
+    const child = await api.create({
+      name: "Child",
+      type: "manual",
+      icon: "📂",
+    });
+    // Simulate a parent link that predates the validation
+    await db
+      .update(bookmarkLists)
+      .set({ parentId: otherList.id })
+      .where(eq(bookmarkLists.id, child.id));
+
+    // Edit forms resubmit the unchanged parent
+    const updated = await api.edit({
+      listId: child.id,
+      name: "Renamed",
+      parentId: otherList.id,
+    });
+    expect(updated.name).toEqual("Renamed");
+  });
+
+  test<CustomTestContext>("recursive delete terminates on pre-existing cycles", async ({
+    apiCallers,
+    db,
+  }) => {
+    const api = apiCallers[0].lists;
+
+    const listA = await api.create({ name: "A", type: "manual", icon: "📂" });
+    const listB = await api.create({
+      name: "B",
+      parentId: listA.id,
+      type: "manual",
+      icon: "📂",
+    });
+    // Simulate a cycle that predates the validation
+    await db
+      .update(bookmarkLists)
+      .set({ parentId: listB.id })
+      .where(eq(bookmarkLists.id, listA.id));
+
+    await api.delete({ listId: listA.id, deleteChildren: true });
+
+    const lists = await api.list();
+    expect(lists.lists.find((l) => l.id === listA.id)).toBeUndefined();
+    expect(lists.lists.find((l) => l.id === listB.id)).toBeUndefined();
+  });
+});
+
+describe("Smart list qualifiers", () => {
+  test<CustomTestContext>("smart list applies note and highlight qualifiers per user", async ({
+    apiCallers,
+  }) => {
+    const ownerApi = apiCallers[0];
+    const otherApi = apiCallers[1];
+
+    const withNote = await ownerApi.bookmarks.createBookmark({
+      type: BookmarkTypes.TEXT,
+      text: "Bookmark with a note",
+      note: "Owner note",
+    });
+    await ownerApi.bookmarks.createBookmark({
+      type: BookmarkTypes.TEXT,
+      text: "Bookmark with an empty note",
+      note: "",
+    });
+    const withHighlight = await ownerApi.bookmarks.createBookmark({
+      type: BookmarkTypes.LINK,
+      url: "https://example.com/owner-highlight",
+    });
+    await ownerApi.highlights.create({
+      bookmarkId: withHighlight.id,
+      startOffset: 0,
+      endOffset: 4,
+      color: "yellow",
+      text: "Test highlight",
+      note: "",
+    });
+
+    await otherApi.bookmarks.createBookmark({
+      type: BookmarkTypes.TEXT,
+      text: "Other user's bookmark with a note",
+      note: "Other user note",
+    });
+    const otherWithHighlight = await otherApi.bookmarks.createBookmark({
+      type: BookmarkTypes.LINK,
+      url: "https://example.com/other-highlight",
+    });
+    await otherApi.highlights.create({
+      bookmarkId: otherWithHighlight.id,
+      startOffset: 0,
+      endOffset: 4,
+      color: "yellow",
+      text: "Other user's highlight",
+      note: "",
+    });
+
+    const smartList = await ownerApi.lists.create({
+      name: "Notes or highlights",
+      type: "smart",
+      query: "has:notes or has:highlights",
+      icon: "📝",
+    });
+
+    const result = await ownerApi.bookmarks.getBookmarks({
+      listId: smartList.id,
+    });
+
+    expect(result.bookmarks.map((bookmark) => bookmark.id).sort()).toEqual(
+      [withNote.id, withHighlight.id].sort(),
+    );
   });
 });
 

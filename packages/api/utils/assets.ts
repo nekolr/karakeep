@@ -5,7 +5,7 @@ import {
   createAssetReadStream,
   getAssetSize,
   readAssetMetadata,
-} from "@karakeep/shared/assetdb";
+} from "@karakeep/shared-server";
 
 import { toWebReadableStream } from "./upload";
 
@@ -34,7 +34,8 @@ export async function serveAsset(c: Context, assetId: string, userId: string) {
       "base-uri 'none'",
       "form-action 'none'",
       "img-src https: data: blob:",
-      "style-src 'unsafe-inline' https:",
+      "style-src 'unsafe-inline' https: data:",
+      "font-src https: data:",
       "connect-src 'none'",
       "media-src https: data: blob:",
       "object-src 'none'",

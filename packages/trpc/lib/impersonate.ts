@@ -1,12 +1,13 @@
 import { eq } from "drizzle-orm";
 
-import { db } from "@karakeep/db";
+import { db as globalDb } from "@karakeep/db";
 import { users } from "@karakeep/db/schema";
 
 import { AuthedContext } from "..";
 
 export async function buildImpersonatingAuthedContext(
   userId: string,
+  db: AuthedContext["db"] = globalDb,
 ): Promise<AuthedContext> {
   const user = await db.query.users.findFirst({
     where: eq(users.id, userId),
@@ -22,6 +23,7 @@ export async function buildImpersonatingAuthedContext(
       email: user.email,
       role: user.role,
     },
+    auth: { type: "internal" },
     db,
     req: {
       ip: null,

@@ -1,6 +1,8 @@
 services:
   web:
     image: karakeep/web:${KARAKEEP_WEB_TAG:-local}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     build:
       dockerfile: docker/Dockerfile
       context: ..
@@ -32,11 +34,18 @@ services:
       DATA_DIR: /data # DON'T CHANGE THIS
   chrome:
     image: karakeep/chrome-desktop:${KARAKEEP_CHROME_TAG:-local}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     build:
       context: ./chrome-desktop
       args:
+        UBUNTU_IMAGE: ${UBUNTU_IMAGE:-ubuntu:24.04}
         UBUNTU_APT_MIRROR: ${UBUNTU_APT_MIRROR:-http://mirrors.aliyun.com/ubuntu/}
+        GOOGLE_CHROME_VERSION: ${GOOGLE_CHROME_VERSION:-157.0.8103.38}
+        CHROME_DOWNLOAD_URL: ${CHROME_DOWNLOAD_URL:-}
+        CHROME_DOWNLOAD_PROXY: ${CHROME_DOWNLOAD_PROXY:-}
     restart: unless-stopped
+    init: true
     shm_size: 1gb
     cap_add:
       - SYS_ADMIN
@@ -49,8 +58,9 @@ services:
       CHROME_PROXY_BYPASS_LIST: ${CHROME_PROXY_BYPASS_LIST:-}
       CHROME_PROXY_PAC_URL: ${CHROME_PROXY_PAC_URL:-}
       CHROME_DISABLE_SANDBOX: ${CHROME_DISABLE_SANDBOX:-false}
+      CHROME_EXTRA_ARGS: ${CHROME_EXTRA_ARGS:-}
   meilisearch:
-    image: getmeili/meilisearch:v1.37.0
+    image: getmeili/meilisearch:v1.55.0
     restart: unless-stopped
     env_file:
       - .env
@@ -62,7 +72,3 @@ services:
 volumes:
   meilisearch:
   data:
-
-
-
-

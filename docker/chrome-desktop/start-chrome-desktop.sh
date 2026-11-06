@@ -93,14 +93,15 @@ BACKGROUND_PIDS+=("$!")
 
 declare -a CHROME_ARGS=(
   "--disable-dev-shm-usage"
-  "--disable-gpu"
-  "--disable-software-rasterizer"
+  "--disable-blink-features=AutomationControlled"
   "--hide-scrollbars"
   "--no-default-browser-check"
   "--no-first-run"
   "--password-store=basic"
   "--remote-debugging-address=127.0.0.1"
   "--remote-debugging-port=${CHROME_INTERNAL_DEBUGGING_PORT}"
+  "--use-angle=swiftshader"
+  "--enable-unsafe-swiftshader"
   "--user-data-dir=${CHROME_PROFILE_DIR}"
   "--window-size=${CHROME_WINDOW_SIZE}"
 )

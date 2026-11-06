@@ -23,9 +23,9 @@ function ConnectionStatus({
 
   let statusText = t("admin.service_connections.status.not_configured");
   let badgeColor =
-    "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400";
+    "bg-gray-100 text-gray-600 dark:bg-muted dark:text-muted-foreground";
   let iconColor = "text-gray-400";
-  let borderColor = "border-gray-200 dark:border-gray-700";
+  let borderColor = "border-gray-200 dark:border-border";
 
   if (configured) {
     if (connected) {
@@ -33,19 +33,19 @@ function ConnectionStatus({
       badgeColor =
         "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400";
       iconColor = "text-green-500";
-      borderColor = "border-green-200 dark:border-green-800";
+      borderColor = "border-green-200 dark:border-green-900";
     } else {
       statusText = t("admin.service_connections.status.disconnected");
       badgeColor =
         "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400";
       iconColor = "text-red-500";
-      borderColor = "border-red-200 dark:border-red-800";
+      borderColor = "border-red-200 dark:border-red-900";
     }
   }
 
   return (
     <div
-      className={`rounded-lg border ${borderColor} bg-background p-5 shadow-sm transition-all sm:w-1/3`}
+      className={`rounded-lg border ${borderColor} bg-card p-5 shadow-sm transition-all`}
     >
       <div className="mb-3 flex items-center justify-between">
         <div>
@@ -85,19 +85,19 @@ function ConnectionStatus({
 function ConnectionsSkeleton() {
   return (
     <AdminCard>
-      <div className="mb-4 h-7 w-40 animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
-      <div className="flex flex-col gap-4 sm:flex-row">
-        {[1, 2, 3].map((i) => (
+      <div className="mb-4 h-7 w-40 animate-pulse rounded bg-gray-200 dark:bg-muted"></div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {[1, 2, 3, 4].map((i) => (
           <div
             key={i}
-            className="rounded-lg border border-gray-200 bg-background p-5 shadow-sm dark:border-gray-700 sm:w-1/3"
+            className="rounded-lg border border-gray-200 bg-card p-5 shadow-sm dark:border-border"
           >
             <div className="mb-3 flex items-center justify-between">
-              <div className="h-5 w-28 animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
-              <div className="h-2 w-2 animate-pulse rounded-full bg-gray-300 dark:bg-gray-600"></div>
+              <div className="h-5 w-28 animate-pulse rounded bg-gray-200 dark:bg-muted"></div>
+              <div className="h-2 w-2 animate-pulse rounded-full bg-gray-300 dark:bg-input"></div>
             </div>
             <div className="mb-2">
-              <div className="h-5 w-20 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700"></div>
+              <div className="h-5 w-20 animate-pulse rounded-full bg-gray-200 dark:bg-muted"></div>
             </div>
           </div>
         ))}
@@ -127,7 +127,7 @@ export default function ServiceConnections() {
       <p className="mb-4 text-sm text-muted-foreground">
         {t("admin.service_connections.description")}
       </p>
-      <div className="flex flex-col gap-4 sm:flex-row">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <ConnectionStatus
           label={t("admin.service_connections.search_engine")}
           configured={connections.searchEngine.configured}
@@ -148,6 +148,13 @@ export default function ServiceConnections() {
           connected={connections.queue.connected}
           pluginName={connections.queue.pluginName}
           error={connections.queue.error}
+        />
+        <ConnectionStatus
+          label={t("admin.service_connections.vector_store")}
+          configured={connections.vectorStore.configured}
+          connected={connections.vectorStore.connected}
+          pluginName={connections.vectorStore.pluginName}
+          error={connections.vectorStore.error}
         />
       </div>
     </AdminCard>

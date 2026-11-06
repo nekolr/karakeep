@@ -1,33 +1,27 @@
-import { useEffect, useMemo, useState } from "react";
-import { FlatList, Pressable, View } from "react-native";
+import { useMemo, useState } from "react";
+import {
+  FlatList,
+  Platform,
+  PlatformColor,
+  Pressable,
+  View,
+} from "react-native";
 import * as Haptics from "expo-haptics";
-import { Link, router, Stack } from "expo-router";
-import FullPageError from "@/components/FullPageError";
+import { Link, router } from "expo-router";
+import { PendingListInvitations } from "@/components/lists/pending-list-invitations";
+import QueryPageState from "@/components/QueryPageState";
 import ChevronRight from "@/components/ui/ChevronRight";
-import FullPageSpinner from "@/components/ui/FullPageSpinner";
+import { FAB } from "@/components/ui/FAB";
 import { Text } from "@/components/ui/Text";
+import { READABLE_CONTENT_MAX_WIDTH } from "@/lib/responsive";
 import { useColorScheme } from "@/lib/useColorScheme";
 import { condProps } from "@/lib/utils";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus } from "lucide-react-native";
+import { ChevronDown, Plus } from "lucide-react-native";
 
 import { useBookmarkLists } from "@karakeep/shared-react/hooks/lists";
 import { useTRPC } from "@karakeep/shared-react/trpc";
 import { ZBookmarkListTreeNode } from "@karakeep/shared/utils/listUtils";
-
-function HeaderRight({ openNewListModal }: { openNewListModal: () => void }) {
-  return (
-    <Pressable
-      className="my-auto px-4"
-      onPress={() => {
-        Haptics.selectionAsync();
-        openNewListModal();
-      }}
-    >
-      <Plus color="rgb(0, 122, 255)" />
-    </Pressable>
-  );
-}
 
 interface ListLink {
   id: string;
@@ -40,6 +34,10 @@ interface ListLink {
   collapsed: boolean;
   isSharedSection?: boolean;
   numBookmarks?: number;
+}
+
+function byName(a: ZBookmarkListTreeNode, b: ZBookmarkListTreeNode) {
+  return a.item.name.localeCompare(b.item.name);
 }
 
 function traverseTree(
@@ -63,23 +61,25 @@ function traverseTree(
   });
 
   if (node.children && showChildrenOf[node.item.id]) {
-    node.children.forEach((child) =>
-      traverseTree(
-        child,
-        links,
-        showChildrenOf,
-        listStats,
-        node.item.id,
-        level + 1,
-      ),
-    );
+    [...node.children]
+      .sort(byName)
+      .forEach((child) =>
+        traverseTree(
+          child,
+          links,
+          showChildrenOf,
+          listStats,
+          node.item.id,
+          level + 1,
+        ),
+      );
   }
 }
 
 export default function Lists() {
   const { colors } = useColorScheme();
   const [refreshing, setRefreshing] = useState(false);
-  const { data: lists, isPending, error, refetch } = useBookmarkLists();
+  const { data: lists, error, refetch } = useBookmarkLists();
   const [showChildrenOf, setShowChildrenOf] = useState<Record<string, boolean>>(
     {},
   );
@@ -103,21 +103,23 @@ export default function Lists() {
     );
   }, [lists?.root, hasSharedLists]);
 
-  useEffect(() => {
-    setRefreshing(isPending);
-  }, [isPending]);
-
-  if (error) {
-    return <FullPageError error={error.message} onRetry={() => refetch()} />;
-  }
-
   if (!lists) {
-    return <FullPageSpinner />;
+    return <QueryPageState error={error} onRetry={() => refetch()} />;
   }
 
-  const onRefresh = () => {
-    queryClient.invalidateQueries(api.lists.list.pathFilter());
-    queryClient.invalidateQueries(api.lists.stats.pathFilter());
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries(api.lists.list.pathFilter()),
+        queryClient.invalidateQueries(api.lists.stats.pathFilter()),
+        queryClient.invalidateQueries(
+          api.lists.getPendingInvitations.pathFilter(),
+        ),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const links: ListLink[] = [
@@ -161,49 +163,50 @@ export default function Lists() {
 
     // Add shared lists as children if section is expanded
     if (showChildrenOf["shared-section"]) {
-      Object.values(lists.root).forEach((list) => {
-        if (list.item.userRole !== "owner") {
-          traverseTree(
-            list,
-            links,
-            showChildrenOf,
-            listStats?.stats,
-            "shared-section",
-            1,
-          );
-        }
-      });
+      Object.values(lists.root)
+        .sort(byName)
+        .forEach((list) => {
+          if (list.item.userRole !== "owner") {
+            traverseTree(
+              list,
+              links,
+              showChildrenOf,
+              listStats?.stats,
+              "shared-section",
+              1,
+            );
+          }
+        });
     }
   }
 
   // Add owned lists only
-  Object.values(lists.root).forEach((list) => {
-    if (list.item.userRole === "owner") {
-      traverseTree(list, links, showChildrenOf, listStats?.stats);
-    }
-  });
+  Object.values(lists.root)
+    .sort(byName)
+    .forEach((list) => {
+      if (list.item.userRole === "owner") {
+        traverseTree(list, links, showChildrenOf, listStats?.stats);
+      }
+    });
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          headerRight: () => (
-            <HeaderRight
-              openNewListModal={() => router.push("/dashboard/lists/new")}
-            />
-          ),
-        }}
-      />
       <FlatList
+        ListHeaderComponent={PendingListInvitations}
         className="h-full"
         contentInsetAdjustmentBehavior="automatic"
         contentContainerStyle={{
           gap: 6,
           paddingBottom: 20,
+          paddingHorizontal: 15,
+          width: "100%",
+          maxWidth: READABLE_CONTENT_MAX_WIDTH,
+          alignSelf: "center",
+          marginBottom: 15,
         }}
         renderItem={(l) => (
           <View
-            className="mx-2 flex flex-row items-center rounded-xl bg-card px-4 py-2"
+            className="flex flex-row items-center rounded-xl bg-card px-4 py-2"
             style={{
               borderCurve: "continuous",
               ...condProps({
@@ -224,14 +227,11 @@ export default function Lists() {
                       }));
                     }}
                   >
-                    <ChevronRight
-                      color={colors.foreground}
-                      style={{
-                        transform: [
-                          { rotate: l.item.collapsed ? "0deg" : "90deg" },
-                        ],
-                      }}
-                    />
+                    {l.item.collapsed ? (
+                      <ChevronRight color={colors.foreground} />
+                    ) : (
+                      <ChevronDown color={colors.foreground} />
+                    )}
                   </Pressable>
                 )}
               </View>
@@ -276,9 +276,24 @@ export default function Lists() {
           </View>
         )}
         data={links}
+        keyExtractor={(item) => item.id}
         refreshing={refreshing}
         onRefresh={onRefresh}
       />
+      <FAB>
+        <Pressable
+          className="h-full w-full items-center justify-center"
+          onPress={() => {
+            Haptics.selectionAsync();
+            router.push("/dashboard/lists/new");
+          }}
+        >
+          <Plus
+            size={24}
+            color={Platform.OS === "ios" ? PlatformColor("label") : "white"}
+          />
+        </Pressable>
+      </FAB>
     </>
   );
 }

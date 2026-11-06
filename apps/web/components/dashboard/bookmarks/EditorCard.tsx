@@ -7,7 +7,7 @@ import MultipleChoiceDialog from "@/components/ui/multiple-choice-dialog";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "@/components/ui/sonner";
 import { Textarea } from "@/components/ui/textarea";
-import BookmarkAlreadyExistsToast from "@/components/utils/BookmarkAlreadyExistsToast";
+import BookmarkSavedToast from "@/components/utils/BookmarkSavedToast";
 import { useClientConfig } from "@/lib/clientConfig";
 import { useTranslation } from "@/lib/i18n/client";
 import {
@@ -58,7 +58,7 @@ export default function EditorCard({ className }: { className?: string }) {
     onSuccess: (resp) => {
       if (resp.alreadyExists) {
         toast({
-          description: <BookmarkAlreadyExistsToast bookmarkId={resp.id} />,
+          description: <BookmarkSavedToast bookmarkId={resp.id} />,
           variant: "default",
         });
       }
@@ -206,7 +206,7 @@ export default function EditorCard({ className }: { className?: string }) {
               ref={inputRef}
               disabled={isPending}
               className={cn(
-                "text-md h-full w-full border-none p-0 font-light focus-visible:ring-0",
+                "h-full w-full border-none p-0 text-base font-light shadow-none focus-visible:ring-0 dark:bg-transparent md:text-base",
                 { "resize-none": bookmarkLayout !== "list" },
               )}
               placeholder={t("editor.placeholder_v2")}

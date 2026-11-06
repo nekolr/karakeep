@@ -28,6 +28,9 @@ async function truncateContent(
   length: number,
 ): Promise<string> {
   const enc = await getEncodingInstance();
+  // Tokenizing is slow and blocks the event loop, so cut the content to a
+  // generous upper bound of characters before encoding it.
+  content = content.slice(0, length * 8);
   const tokens = enc.encode(content);
   if (tokens.length <= length) {
     return content;
@@ -50,6 +53,7 @@ export async function buildTextPrompt(
   contextLength: number,
   tagStyle: ZTagStyle,
   curatedTags?: string[],
+  potentialRelevantTags?: string[],
 ): Promise<string> {
   content = preprocessContent(content);
   const promptTemplate = constructTextTaggingPrompt(
@@ -58,6 +62,7 @@ export async function buildTextPrompt(
     "",
     tagStyle,
     curatedTags,
+    potentialRelevantTags,
   );
   const promptSize = await calculateNumTokens(promptTemplate);
   const available = Math.max(0, contextLength - promptSize);
@@ -69,6 +74,7 @@ export async function buildTextPrompt(
     truncatedContent,
     tagStyle,
     curatedTags,
+    potentialRelevantTags,
   );
 }
 

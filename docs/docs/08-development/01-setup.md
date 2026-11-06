@@ -10,7 +10,7 @@ For the fastest way to get started with development, use the one-command setup s
 
 This script will automatically:
 - Start Meilisearch in Docker (on port 7700)
-- Build and start an Ubuntu desktop Chrome container in Docker
+- Start headless Chrome in Docker (on port 9222)
 - Install dependencies with `pnpm install` if needed
 - Start both the web app and workers in parallel
 - Provide cleanup when you stop with Ctrl+C
@@ -23,22 +23,23 @@ The script will output the running services:
 - Web app: http://localhost:3000
 - Meilisearch: http://localhost:7700  
 - Chrome debugger: http://localhost:9222
-- Chrome desktop: http://localhost:6080/vnc.html
 
 Press Ctrl+C to stop all services and clean up Docker containers.
+
+Alternatively, you can use Docker Compose to run the full stack in containers — see [Docker Compose Details](#docker-compose-details) below.
 
 ## Manual Setup
 
 Karakeep uses `node` version 24. To install it, you can use `nvm` [^1]
 
 ```
-$ nvm install  24
+$ nvm install 24
 ```
 
 Verify node version using this command:
 ```
 $ node --version
-v24.14.0
+v24.0.0
 ```
 
 Karakeep also makes use of `corepack`[^2]. If you have `node` installed, then `corepack` should already be
@@ -46,7 +47,7 @@ installed on your machine, and you don't need to do anything. To verify the `cor
 
 ```
 $ command -v corepack
-/home/<user>/.nvm/versions/node/v24.14.0/bin/corepack
+/home/<user>/.nvm/versions/node/v22.14.0/bin/corepack
 ```
 
 To enable `corepack` run the following command:
@@ -71,7 +72,6 @@ Packages: +3129
 Progress: resolved 0, reused 2699, downloaded 0, added 3129, done
 
 devDependencies:
-+ @karakeep/prettier-config 0.1.0 <- tooling/prettier
 
 . prepare$ husky
 └─ Done in 45ms
@@ -87,7 +87,7 @@ You can now continue with the rest of this documentation.
 - Start by copying the template by `cp .env.sample .env`.
 - The most important env variables to set are:
   - `DATA_DIR`: Where the database and assets will be stored. This is the only required env variable. You can use an absolute path so that all apps point to the same dir.
-  - `NEXTAUTH_SECRET`: Random string used to sign the JWT tokens. Generate one with `openssl rand -base64 36`. Logging in will not work if this is missing!
+  - `NEXTAUTH_SECRET`: Random string used to secure authentication cookies and tokens. Generate one with `openssl rand -base64 36`. Logging in will not work if this is missing!
   - `MEILI_ADDR`: If not set, search will be disabled. You can set it to `http://127.0.0.1:7700` if you run meilisearch using the command below.
   - `OPENAI_API_KEY`: If you want to enable auto tag inference in the dev env.
 - run `pnpm run db:migrate` in the root of the repo to set up the database.
@@ -96,19 +96,13 @@ You can now continue with the rest of this documentation.
 
 #### Meilisearch
 
-Meilisearch is the provider for the full text search (and at some point embeddings search too). You can get it running with `docker run -p 7700:7700 getmeili/meilisearch:v1.13.3`.
+Meilisearch is the provider for the full text search (and at some point embeddings search too). You can get it running with `docker run -p 7700:7700 getmeili/meilisearch:v1.55.0`.
 
 Mount persistent volume if you want to keep index data across restarts. You can trigger a re-index for the entire items collection in the admin panel in the web app.
 
 #### Chrome
 
-The worker app talks to Chrome through the DevTools endpoint exposed by `BROWSER_WEB_URL`.
-
-The default Docker-based setup now uses a single Ubuntu desktop Chrome container that exposes:
-- `9222` for Chrome DevTools Protocol (used by Karakeep)
-- `6080` for noVNC access to the desktop browser
-
-You don't need to do anything manually if you use `./start-dev.sh` or the provided Docker Compose files.
+The worker app will automatically start headless chrome on startup for crawling pages. You don't need to do anything there.
 
 ### Web App
 
@@ -183,29 +177,69 @@ Note: Changing the code will hot reload the app. However, installing new package
 
 - `cd apps/browser-extension`
 - `pnpm dev`
-- This will generate a `dist` package
-- Go to extension settings in chrome and enable developer mode.
-- Press `Load unpacked` and point it to the `dist` directory.
-- The plugin will pop up in the plugin list.
+- This will start the extension dev server on `http://localhost:5174` and generate a `dist` package.
+- Go to `chrome://extensions` in Chrome or Brave and enable developer mode.
+- Press `Load unpacked` and point it to the `apps/browser-extension/dist` directory.
+- The extension will pop up in the extension list.
 
 In dev mode, opening and closing the plugin menu should reload the code.
 
 
-## Docker Dev Env
+## Docker Compose Details
 
-If the manual setup is too much hassle for you. You can use a docker based dev environment by running `docker compose -f docker/docker-compose.dev.yml up` in the root of the repo. This setup wasn't super reliable for me though.
+If you prefer to run the full stack inside Docker, follow these steps:
 
-Once it starts, you can inspect the browser container at `http://localhost:6080/vnc.html` while Karakeep keeps using `http://chrome:9222` internally for crawling.
+1. (Optional) Copy the sample env file whenever you need to override the defaults or commit real secrets:
 
-The desktop browser image is built from Ubuntu and uses the Aliyun Ubuntu mirror by default during `apt` installs to speed up builds in mainland China.
+```bash
+cp .env.sample .env
+```
 
+   - Even if you skip this step, the compose file injects sensible defaults: `DATA_DIR=/data`, `MEILI_ADDR=http://meilisearch:7700`, `NEXTAUTH_URL=http://localhost:3000`, and `NEXTAUTH_SECRET=super-secure-nextauth-secret`.
+   - When you're ready, set at least `NEXTAUTH_SECRET` (use `openssl rand -base64 36`) and any optional keys like `OPENAI_API_KEY` inside `.env` so they override the defaults.
+   - The stack automatically mounts `/data` inside the containers, so you only need to change `DATA_DIR` if you prefer a host path.
+2. Start every dependency, install packages, and run migrations in one go:
+
+```bash
+docker compose -f docker/docker-compose.dev.yml up
+```
+
+   - The `prep` service creates `DATA_DIR` (if missing), runs `pnpm install --frozen-lockfile`, and then `pnpm run db:migrate` the first time (and whenever you restart the stack) so the rest of the services always have dependencies ready.
+   - The `web` and `workers` services run `pnpm web` and `pnpm workers` respectively using the same code that lives on your host machine, so hot reload works out of the box.
+3. Tail the dev logs when needed:
+
+```bash
+docker compose logs -f web workers
+```
+
+4. Stop everything with `docker compose down`. Re-run with `--build` if you change Node dependencies or the Dockerfile.
+
+This setup exposes:
+- Web app: http://localhost:3000
+- Chrome debugger: http://localhost:9222
+
+Meilisearch runs as an internal service only (no host port exposed).
+
+`docker compose -f docker/docker-compose.dev.yml up` starts five services:
+
+- `prep`: installs dependencies and runs database migrations before anything else boots.
+- `web`: runs `pnpm web` with hot reload enabled (polling watchers are turned on for reliable Mac/Windows file sync).
+- `workers`: runs `pnpm workers` so crawlers, importers, and background jobs behave the same way as in local dev.
+- `meilisearch`: exposes http://localhost:7700 with analytics disabled and persistent data stored in the `meilisearch` Docker volume.
+- `chrome`: provides the remote-debuggable Chrome instance required by the workers on http://localhost:9222.
+
+All application containers mount your checkout into `/app` and share two volumes: `node_modules` (so dependencies live inside Linux containers) and `pnpm-store` (to keep the pnpm cache). If you ever need a clean slate you can remove them with:
+
+```bash
+docker compose -f docker/docker-compose.dev.yml down -v
+```
+
+Every environment value is defined with `${VAR:-default}` syntax, so the stack boots even if `.env` is missing; create the file only when you want to override something like `NEXTAUTH_SECRET` or `MEILI_MASTER_KEY`.
+
+You can override the default `/data` mount by editing `DATA_DIR` in `.env` and binding a host directory via a regular Docker volume mapping. Any other environment variable defined in `.env` is automatically propagated to the Node services.
 
 [^1]: [nvm](https://github.com/nvm-sh/nvm) is a node version manager. You can install it following [these
 instructions](https://github.com/nvm-sh/nvm?tab=readme-ov-file#installing-and-updating).
 
 [^2]: [corepack](https://nodejs.org/api/corepack.html) is an experimental tool to help with managing versions of your
 package managers.
-
-
-
-

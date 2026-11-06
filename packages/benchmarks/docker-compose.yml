@@ -17,48 +17,45 @@ services:
       CRAWLER_NUM_WORKERS: 6
       CRAWLER_ALLOWED_INTERNAL_HOSTNAMES: nginx
   meilisearch:
-    image: getmeili/meilisearch:v1.37.0
+    image: getmeili/meilisearch:v1.55.0
     restart: unless-stopped
     environment:
       MEILI_NO_ANALYTICS: "true"
       MEILI_MASTER_KEY: dummy
   chrome:
-    image: karakeep/chrome-desktop:${KARAKEEP_CHROME_TAG:-local}
-    build:
-      context: ../../docker/chrome-desktop
-      args:
-        UBUNTU_APT_MIRROR: ${UBUNTU_APT_MIRROR:-http://mirrors.aliyun.com/ubuntu/}
+    image: ghcr.io/karakeep-app/karakeep-chrome:release
     restart: unless-stopped
-    shm_size: 1gb
-    cap_add:
-      - SYS_ADMIN
-    environment:
-      CHROME_REMOTE_DEBUGGING_PORT: 9222
-      CHROME_PROXY_SERVER: ${CHROME_PROXY_SERVER:-}
-      CHROME_PROXY_BYPASS_LIST: ${CHROME_PROXY_BYPASS_LIST:-}
-      CHROME_PROXY_PAC_URL: ${CHROME_PROXY_PAC_URL:-}
-      CHROME_DISABLE_SANDBOX: ${CHROME_DISABLE_SANDBOX:-false}
+    init: true
+    command:
+      - --disable-gpu
+      - --disable-dev-shm-usage
+      - --hide-scrollbars
+      - --disable-blink-features=AutomationControlled
+      - --window-size=1440,900
   nginx:
     image: nginx:alpine
     restart: unless-stopped
     volumes:
       - ./setup/html:/usr/share/nginx/html
-  minio:
-    image: minio/minio:latest
+  garage:
+    image: dxflrs/garage:v2.3.0
     restart: unless-stopped
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "9000:3900"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
-    command: server /data --console-address ":9001"
+      # Fixed credentials for local tests only.
+      GARAGE_DEFAULT_ACCESS_KEY: GK0123456789abcdef0123456789abcdef
+      GARAGE_DEFAULT_SECRET_KEY: 0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      GARAGE_DEFAULT_BUCKET: karakeep-test
+    command: /garage server --single-node --default-bucket
     volumes:
-      - minio_data:/data
+      - ../../docker/garage/garage.toml:/etc/garage.toml:ro
+      - garage_data:/data
+    healthcheck:
+      test: ["CMD", "/garage", "bucket", "info", "karakeep-test"]
+      interval: 1s
+      timeout: 5s
+      retries: 30
 
 volumes:
-  minio_data:
-
-
-
-
+  garage_data:

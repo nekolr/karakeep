@@ -1,35 +1,36 @@
-FROM ubuntu:24.04
+ARG UBUNTU_IMAGE=ubuntu:24.04
+FROM ${UBUNTU_IMAGE}
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV HOME=/home/chrome
 
 ARG UBUNTU_APT_MIRROR=http://mirrors.aliyun.com/ubuntu/
+ARG GOOGLE_CHROME_VERSION=157.0.8103.38
+ARG CHROME_DOWNLOAD_URL=
+ARG CHROME_DOWNLOAD_PROXY=
 
-RUN sed -i "s|http://archive.ubuntu.com/ubuntu/|${UBUNTU_APT_MIRROR}|g; s|http://security.ubuntu.com/ubuntu/|${UBUNTU_APT_MIRROR}|g" /etc/apt/sources.list.d/ubuntu.sources \
+RUN test "$(dpkg --print-architecture)" = "amd64" \
+    && sed -i "s|http://archive.ubuntu.com/ubuntu/|${UBUNTU_APT_MIRROR}|g; s|http://security.ubuntu.com/ubuntu/|${UBUNTU_APT_MIRROR}|g" /etc/apt/sources.list.d/ubuntu.sources \
     && apt-get update \
     && apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
-        gnupg \
-    && mkdir -p /etc/apt/keyrings \
-    && curl -fsSL https://dl.google.com/linux/linux_signing_key.pub \
-        | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg \
-    && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" \
-        > /etc/apt/sources.list.d/google-chrome.list \
-    && apt-get update \
-    && apt-get install -y --no-install-recommends \
         dbus-x11 \
         fonts-liberation \
         fonts-noto-cjk \
         fonts-noto-color-emoji \
-        google-chrome-stable \
         novnc \
         openbox \
         python3 \
         python3-websockify \
         socat \
         x11vnc \
-        xvfb \
+        xvfb
+
+RUN CHROME_URL="${CHROME_DOWNLOAD_URL:-https://dl.google.com/linux/chrome/deb/pool/main/g/google-chrome-stable/google-chrome-stable_${GOOGLE_CHROME_VERSION}-1_amd64.deb}" \
+    && HTTPS_PROXY="${CHROME_DOWNLOAD_PROXY}" https_proxy="${CHROME_DOWNLOAD_PROXY}" curl -fsSL -o /tmp/google-chrome.deb "${CHROME_URL}" \
+    && apt-get install -y --no-install-recommends /tmp/google-chrome.deb \
+    && rm -f /tmp/google-chrome.deb \
     && useradd --create-home --shell /bin/bash chrome \
     && mkdir -p /tmp/chrome-profile /tmp/runtime-chrome \
     && chown -R chrome:chrome /home/chrome /tmp/chrome-profile /tmp/runtime-chrome \

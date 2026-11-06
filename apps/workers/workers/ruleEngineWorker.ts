@@ -1,12 +1,10 @@
 import { eq } from "drizzle-orm";
-import { workerStatsCounter } from "metrics";
-import { buildImpersonatingAuthedContext } from "trpc";
-import { withWorkerTracing } from "workerTracing";
 
 import type { ZRuleEngineRequest } from "@karakeep/shared-server";
 import { db } from "@karakeep/db";
 import { bookmarks } from "@karakeep/db/schema";
 import {
+  addLogFields,
   RuleEngineQueue,
   zRuleEngineRequestSchema,
 } from "@karakeep/shared-server";
@@ -15,13 +13,20 @@ import logger from "@karakeep/shared/logger";
 import { DequeuedJob, getQueueClient } from "@karakeep/shared/queueing";
 import { RuleEngine } from "@karakeep/trpc/lib/ruleEngine";
 
+import { workerStatsCounter } from "../metrics";
+import { buildImpersonatingAuthedContext } from "../trpc";
+import { withWorkerEventLog, withWorkerTracing } from "../workerTracing";
+
 export class RuleEngineWorker {
   static async build() {
     logger.info("Starting rule engine worker ...");
     const worker = (await getQueueClient())!.createRunner<ZRuleEngineRequest>(
       RuleEngineQueue,
       {
-        run: withWorkerTracing("ruleEngineWorker.run", runRuleEngine),
+        run: withWorkerTracing(
+          "ruleEngineWorker.run",
+          withWorkerEventLog("ruleEngineWorker.run", runRuleEngine),
+        ),
         onComplete: (job) => {
           workerStatsCounter.labels("ruleEngine", "completed").inc();
           const jobId = job.id;
@@ -64,6 +69,10 @@ async function getBookmarkUserId(bookmarkId: string) {
 async function runRuleEngine(job: DequeuedJob<ZRuleEngineRequest>) {
   const jobId = job.id;
   const { bookmarkId, events } = job.data;
+  addLogFields<"ruleEngineWorker.run">({
+    "bookmark.id": bookmarkId,
+    "rule_engine.events_count": events.length,
+  });
 
   const bookmark = await getBookmarkUserId(bookmarkId);
   if (!bookmark) {
@@ -86,6 +95,10 @@ async function runRuleEngine(job: DequeuedJob<ZRuleEngineRequest>) {
   const results = (
     await Promise.all(events.map((event) => ruleEngine.onEvent(event)))
   ).flat();
+
+  addLogFields<"ruleEngineWorker.run">({
+    "rule_engine.matched_count": results.length,
+  });
 
   if (results.length == 0) {
     return;

@@ -1,10 +1,11 @@
 import type { CheerioAPI } from "cheerio";
 import type { Rules, RulesOptions } from "metascraper";
 import { decode as decodeHtmlEntities } from "html-entities";
-import { fetchWithProxy } from "network";
 import { z } from "zod";
 
 import logger from "@karakeep/shared/logger";
+
+import { fetchWithProxy } from "../network";
 
 /**
  * This is a metascraper plugin to select a better
@@ -55,7 +56,9 @@ const redditPostSchema = z.object({
   url_overridden_by_dest: z.string().optional(),
   url: z.string().optional(),
   thumbnail: z.string().optional(),
-  media_metadata: z.record(redditMediaMetadataItemSchema).optional(),
+  media_metadata: z
+    .record(z.string(), redditMediaMetadataItemSchema)
+    .optional(),
   author: z.string().optional(),
   created_utc: z.number().optional(),
   selftext: z.string().nullish(),

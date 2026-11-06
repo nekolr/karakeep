@@ -1,4 +1,3 @@
-import type { AdapterAccount } from "@auth/core/adapters";
 import { createId } from "@paralleldrive/cuid2";
 import { relations, sql, SQL } from "drizzle-orm";
 import {
@@ -13,16 +12,31 @@ import {
   unique,
 } from "drizzle-orm/sqlite-core";
 
+import type { ZApiKeyScope } from "@karakeep/shared/types/apiKeys";
+import { API_KEY_FULL_ACCESS_SCOPE } from "@karakeep/shared/types/apiKeys";
 import { BookmarkTypes } from "@karakeep/shared/types/bookmarks";
+import type { ZReaderViewReason } from "@karakeep/shared/types/bookmarks";
 
-function createdAtField() {
-  return integer("createdAt", { mode: "timestamp" })
+function createdAtField(colName = "createdAt") {
+  return integer(colName, { mode: "timestamp" })
+    .notNull()
+    .$defaultFn(() => new Date());
+}
+
+function createdAtMsField() {
+  return integer("createdAt", { mode: "timestamp_ms" })
     .notNull()
     .$defaultFn(() => new Date());
 }
 
 function modifiedAtField() {
   return integer("modifiedAt", { mode: "timestamp" })
+    .$defaultFn(() => new Date())
+    .$onUpdate(() => new Date());
+}
+
+function modifiedAtMsField() {
+  return integer("modifiedAt", { mode: "timestamp_ms" })
     .$defaultFn(() => new Date())
     .$onUpdate(() => new Date());
 }
@@ -34,11 +48,19 @@ export const users = sqliteTable("user", {
     .$defaultFn(() => createId()),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  emailVerified: integer("emailVerified", { mode: "timestamp_ms" }),
+  // Nullable and without a SQL default because SQLite can't add those
+  // constraints to an existing column without rebuilding the user table.
+  emailVerified: integer("emailVerified", { mode: "boolean" }).$defaultFn(
+    () => false,
+  ),
   image: text("image"),
-  password: text("password"),
-  salt: text("salt").notNull().default(""),
   role: text("role", { enum: ["admin", "user"] }).default("user"),
+  createdAt: integer("createdAt", { mode: "timestamp_ms" }).$defaultFn(
+    () => new Date(),
+  ),
+  updatedAt: integer("updatedAt", { mode: "timestamp_ms" })
+    .$defaultFn(() => new Date())
+    .$onUpdate(() => new Date()),
 
   // Admin Only Settings
   bookmarkQuota: integer("bookmarkQuota"),
@@ -46,6 +68,10 @@ export const users = sqliteTable("user", {
   browserCrawlingEnabled: integer("browserCrawlingEnabled", {
     mode: "boolean",
   }),
+  // Admin-granted plan label (e.g. a collaborator name). While set, Stripe
+  // and in-app purchase syncs don't downgrade the user's entitlements; it's
+  // cleared when the user gets an active paid subscription.
+  manualTierName: text("manualTierName"),
 
   // User Settings
   bookmarkClickAction: text("bookmarkClickAction", {
@@ -101,63 +127,87 @@ export const users = sqliteTable("user", {
 export const accounts = sqliteTable(
   "account",
   {
+    id: text("id")
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    accountId: text("accountId").notNull(),
+    providerId: text("providerId").notNull(),
     userId: text("userId")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    type: text("type").$type<AdapterAccount["type"]>().notNull(),
-    provider: text("provider").notNull(),
-    providerAccountId: text("providerAccountId").notNull(),
-    refresh_token: text("refresh_token"),
-    access_token: text("access_token"),
-    expires_at: integer("expires_at"),
-    token_type: text("token_type"),
+    accessToken: text("accessToken"),
+    refreshToken: text("refreshToken"),
+    idToken: text("idToken"),
+    accessTokenExpiresAt: integer("accessTokenExpiresAt", {
+      mode: "timestamp_ms",
+    }),
+    refreshTokenExpiresAt: integer("refreshTokenExpiresAt", {
+      mode: "timestamp_ms",
+    }),
     scope: text("scope"),
-    id_token: text("id_token"),
-    session_state: text("session_state"),
+    password: text("password"),
+    createdAt: createdAtMsField(),
+    updatedAt: integer("updatedAt", { mode: "timestamp_ms" })
+      .notNull()
+      .$defaultFn(() => new Date())
+      .$onUpdate(() => new Date()),
   },
   (account) => [
-    primaryKey({
-      columns: [account.provider, account.providerAccountId],
-    }),
+    unique("accounts_providerId_accountId_unique").on(
+      account.providerId,
+      account.accountId,
+    ),
+    index("accounts_userId_idx").on(account.userId),
   ],
 );
 
-export const sessions = sqliteTable("session", {
-  sessionToken: text("sessionToken")
-    .notNull()
-    .primaryKey()
-    .$defaultFn(() => createId()),
-  userId: text("userId")
-    .notNull()
-    .references(() => users.id, { onDelete: "cascade" }),
-  expires: integer("expires", { mode: "timestamp_ms" }).notNull(),
-});
-
-export const verificationTokens = sqliteTable(
-  "verificationToken",
-  {
-    identifier: text("identifier").notNull(),
-    token: text("token").notNull(),
-    expires: integer("expires", { mode: "timestamp_ms" }).notNull(),
-  },
-  (vt) => [primaryKey({ columns: [vt.identifier, vt.token] })],
-);
-
-export const passwordResetTokens = sqliteTable(
-  "passwordResetToken",
+export const sessions = sqliteTable(
+  "session",
   {
     id: text("id")
       .notNull()
       .primaryKey()
       .$defaultFn(() => createId()),
+    token: text("token").notNull().unique(),
     userId: text("userId")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    token: text("token").notNull().unique(),
-    expires: integer("expires", { mode: "timestamp_ms" }).notNull(),
-    createdAt: createdAtField(),
+    expiresAt: integer("expiresAt", { mode: "timestamp_ms" }).notNull(),
+    ipAddress: text("ipAddress"),
+    userAgent: text("userAgent"),
+    createdAt: createdAtMsField(),
+    updatedAt: integer("updatedAt", { mode: "timestamp_ms" })
+      .notNull()
+      .$defaultFn(() => new Date())
+      .$onUpdate(() => new Date()),
   },
-  (prt) => [index("passwordResetTokens_userId_idx").on(prt.userId)],
+  (session) => [index("sessions_userId_idx").on(session.userId)],
+);
+
+export const verificationTokens = sqliteTable(
+  "verificationToken",
+  {
+    id: text("id")
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    identifier: text("identifier").notNull(),
+    value: text("value").notNull(),
+    expiresAt: integer("expiresAt", { mode: "timestamp_ms" }).notNull(),
+    createdAt: createdAtMsField(),
+    updatedAt: integer("updatedAt", { mode: "timestamp_ms" })
+      .notNull()
+      .$defaultFn(() => new Date())
+      .$onUpdate(() => new Date()),
+  },
+  (verification) => [
+    unique("verificationTokens_identifier_value_unique").on(
+      verification.identifier,
+      verification.value,
+    ),
+    index("verificationTokens_identifier_idx").on(verification.identifier),
+  ],
 );
 
 export const apiKeys = sqliteTable(
@@ -172,6 +222,10 @@ export const apiKeys = sqliteTable(
     lastUsedAt: integer("lastUsedAt", { mode: "timestamp" }),
     keyId: text("keyId").notNull().unique(),
     keyHash: text("keyHash").notNull(),
+    scopes: text("scopes", { mode: "json" })
+      .$type<ZApiKeyScope[]>()
+      .notNull()
+      .$defaultFn(() => [API_KEY_FULL_ACCESS_SCOPE]),
     userId: text("userId")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -186,7 +240,16 @@ export const bookmarks = sqliteTable(
       .notNull()
       .primaryKey()
       .$defaultFn(() => createId()),
-    createdAt: createdAtField(),
+    // The `createdAt` field and the `createdAt` column intentionally don't
+    // match. Re-saving an existing bookmark bumps it back to the top of the
+    // list, so the timestamp everything sorts and filters on is now "when was
+    // this last saved" and lives in the `lastSavedAt` column. It keeps the
+    // `createdAt` field name because that's what the API has always exposed and
+    // what every query already orders by. The immutable "when did this row
+    // first appear" timestamp stays in the original `createdAt` column, and is
+    // exposed to clients as `firstCreatedAt`.
+    dbCreatedAt: createdAtField(),
+    createdAt: createdAtField("lastSavedAt"),
     modifiedAt: modifiedAtField(),
     title: text("title"),
     archived: integer("archived", { mode: "boolean" }).notNull().default(false),
@@ -200,6 +263,9 @@ export const bookmarks = sqliteTable(
       enum: ["pending", "failure", "success"],
     }).default("pending"),
     summarizationStatus: text("summarizationStatus", {
+      enum: ["pending", "failure", "success"],
+    }).default("pending"),
+    embeddingStatus: text("embeddingStatus", {
       enum: ["pending", "failure", "success"],
     }).default("pending"),
     summary: text("summary"),
@@ -221,17 +287,20 @@ export const bookmarks = sqliteTable(
     }),
   },
   (b) => [
-    index("bookmarks_userId_idx").on(b.userId),
-    index("bookmarks_createdAt_idx").on(b.createdAt),
+    index("bookmarks_lastSavedAt_idx").on(b.createdAt),
     // Composite indexes for optimized pagination queries
-    index("bookmarks_userId_createdAt_id_idx").on(b.userId, b.createdAt, b.id),
-    index("bookmarks_userId_archived_createdAt_id_idx").on(
+    index("bookmarks_userId_lastSavedAt_id_idx").on(
+      b.userId,
+      b.createdAt,
+      b.id,
+    ),
+    index("bookmarks_userId_archived_lastSavedAt_id_idx").on(
       b.userId,
       b.archived,
       b.createdAt,
       b.id,
     ),
-    index("bookmarks_userId_favourited_createdAt_id_idx").on(
+    index("bookmarks_userId_favourited_lastSavedAt_id_idx").on(
       b.userId,
       b.favourited,
       b.createdAt,
@@ -261,11 +330,22 @@ export const bookmarkLinks = sqliteTable(
     favicon: text("favicon"),
     htmlContent: text("htmlContent"),
     contentAssetId: text("contentAssetId"),
+    readerViewStatus: text("readerViewStatus", {
+      enum: ["readable", "not_readable", "uncertain", "unavailable"],
+    }),
+    readerViewScore: integer("readerViewScore"),
+    readerViewReasons: text("readerViewReasons", { mode: "json" }).$type<
+      ZReaderViewReason[]
+    >(),
+    readerViewClassifierVersion: integer("readerViewClassifierVersion"),
     crawledAt: integer("crawledAt", { mode: "timestamp" }),
     crawlStatus: text("crawlStatus", {
       enum: ["pending", "failure", "success"],
     }).default("pending"),
     crawlStatusCode: integer("crawlStatusCode").default(200),
+    // When the pre-crawl probe last extracted and stored this link's metadata.
+    // Lets crawl retries skip re-fetching it.
+    probeMetadataAt: integer("probeMetadataAt", { mode: "timestamp" }),
   },
   (bl) => [index("bookmarkLinks_url_idx").on(bl.url)],
 );
@@ -434,7 +514,6 @@ export const bookmarkTags = sqliteTable(
     unique().on(bt.userId, bt.name),
     unique("bookmarkTags_userId_id_idx").on(bt.userId, bt.id),
     index("bookmarkTags_name_idx").on(bt.name),
-    index("bookmarkTags_userId_idx").on(bt.userId),
     index("bookmarkTags_normalizedName_idx").on(bt.normalizedName),
   ],
 );
@@ -456,8 +535,6 @@ export const tagsOnBookmarks = sqliteTable(
   },
   (tb) => [
     primaryKey({ columns: [tb.bookmarkId, tb.tagId] }),
-    index("tagsOnBookmarks_tagId_idx").on(tb.tagId),
-    index("tagsOnBookmarks_bookmarkId_idx").on(tb.bookmarkId),
     // Composite index for tag-first queries (when filtering by tagId)
     index("tagsOnBookmarks_tagId_bookmarkId_idx").on(tb.tagId, tb.bookmarkId),
   ],
@@ -517,8 +594,6 @@ export const bookmarksInLists = sqliteTable(
   },
   (tb) => [
     primaryKey({ columns: [tb.bookmarkId, tb.listId] }),
-    index("bookmarksInLists_bookmarkId_idx").on(tb.bookmarkId),
-    index("bookmarksInLists_listId_idx").on(tb.listId),
     // Composite index for list-first queries (when filtering by listId)
     index("bookmarksInLists_listId_bookmarkId_idx").on(
       tb.listId,
@@ -606,6 +681,47 @@ export const customPrompts = sqliteTable(
   (bl) => [index("customPrompts_userId_idx").on(bl.userId)],
 );
 
+export const chatSessions = sqliteTable(
+  "chatSessions",
+  {
+    id: text("id")
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    title: text("title").notNull(),
+    userId: text("userId")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    createdAt: createdAtMsField(),
+    modifiedAt: modifiedAtMsField(),
+  },
+  (cs) => [
+    index("chatSessions_userId_idx").on(cs.userId),
+    index("chatSessions_userId_modifiedAt_idx").on(cs.userId, cs.modifiedAt),
+  ],
+);
+
+export const chatMessages = sqliteTable(
+  "chatMessages",
+  {
+    id: text("id")
+      .notNull()
+      .primaryKey()
+      .$defaultFn(() => createId()),
+    chatId: text("chatId")
+      .notNull()
+      .references(() => chatSessions.id, { onDelete: "cascade" }),
+    role: text("role", { enum: ["user", "assistant", "toolResult"] }).notNull(),
+    content: text("content").notNull(),
+    metadata: text("metadata", { mode: "json" }).$type<unknown>(),
+    createdAt: createdAtMsField(),
+  },
+  (cm) => [
+    index("chatMessages_chatId_idx").on(cm.chatId),
+    index("chatMessages_chatId_createdAt_idx").on(cm.chatId, cm.createdAt),
+  ],
+);
+
 export const rssFeedsTable = sqliteTable(
   "rssFeeds",
   {
@@ -621,6 +737,9 @@ export const rssFeedsTable = sqliteTable(
       .default(false),
     createdAt: createdAtField(),
     lastFetchedAt: integer("lastFetchedAt", { mode: "timestamp" }),
+    lastSuccessfulFetchAt: integer("lastSuccessfulFetchAt", {
+      mode: "timestamp",
+    }),
     lastFetchedStatus: text("lastFetchedStatus", {
       enum: ["pending", "failure", "success"],
     }).default("pending"),
@@ -671,6 +790,7 @@ export const rssFeedImportsTable = sqliteTable(
     index("rssFeedImports_feedIdIdx_idx").on(bl.rssFeedId),
     index("rssFeedImports_entryIdIdx_idx").on(bl.entryId),
     unique().on(bl.rssFeedId, bl.entryId),
+    index("rssFeedImports_bookmarkId_idx").on(bl.bookmarkId),
     // Composite index for RSS feed filter queries (when filtering by rssFeedId)
     index("rssFeedImports_rssFeedId_bookmarkId_idx").on(
       bl.rssFeedId,
@@ -730,8 +850,6 @@ export const ruleEngineRulesTable = sqliteTable(
     userId: text("userId")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-
-    listId: text("listId"),
     tagId: text("tagId"),
   },
   (rl) => [
@@ -742,11 +860,6 @@ export const ruleEngineRulesTable = sqliteTable(
       columns: [rl.userId, rl.tagId],
       foreignColumns: [bookmarkTags.userId, bookmarkTags.id],
       name: "ruleEngineRules_userId_tagId_fk",
-    }).onDelete("cascade"),
-    foreignKey({
-      columns: [rl.userId, rl.listId],
-      foreignColumns: [bookmarkLists.userId, bookmarkLists.id],
-      name: "ruleEngineRules_userId_listId_fk",
     }).onDelete("cascade"),
   ],
 );
@@ -846,6 +959,37 @@ export const subscriptions = sqliteTable(
   ],
 );
 
+// Subscriptions purchased through the mobile app stores (App Store / Google
+// Play). These are managed by RevenueCat, which is the source of truth; this
+// table mirrors the state of the configured RevenueCat entitlement.
+export const inAppSubscriptions = sqliteTable("inAppSubscriptions", {
+  id: text("id")
+    .notNull()
+    .primaryKey()
+    .$defaultFn(() => createId()),
+  userId: text("userId")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" })
+    .unique(),
+  // The RevenueCat store identifier (e.g. "app_store", "play_store").
+  store: text("store"),
+  productId: text("productId"),
+  status: text("status", {
+    enum: ["active", "expired"],
+  }).notNull(),
+  cancelAtPeriodEnd: integer("cancelAtPeriodEnd", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  billingIssue: integer("billingIssue", { mode: "boolean" })
+    .notNull()
+    .default(false),
+  isSandbox: integer("isSandbox", { mode: "boolean" }).notNull().default(false),
+  startDate: integer("startDate", { mode: "timestamp" }),
+  endDate: integer("endDate", { mode: "timestamp" }),
+  createdAt: createdAtField(),
+  modifiedAt: modifiedAtField(),
+});
+
 export const importSessions = sqliteTable(
   "importSessions",
   {
@@ -862,17 +1006,35 @@ export const importSessions = sqliteTable(
       onDelete: "set null",
     }),
     status: text("status", {
-      enum: ["staging", "pending", "running", "paused", "completed", "failed"],
+      enum: [
+        "staging",
+        "pending",
+        "running",
+        "paused",
+        "completed",
+        "failed",
+        "archived",
+      ],
     })
       .notNull()
       .default("staging"),
     lastProcessedAt: integer("lastProcessedAt", { mode: "timestamp" }),
+    completedAt: integer("completedAt", { mode: "timestamp" }),
+    totalBookmarks: integer("totalBookmarks").notNull().default(0),
+    completedBookmarks: integer("completedBookmarks").notNull().default(0),
+    failedBookmarks: integer("failedBookmarks").notNull().default(0),
+    pendingBookmarks: integer("pendingBookmarks").notNull().default(0),
+    processingBookmarks: integer("processingBookmarks").notNull().default(0),
     createdAt: createdAtField(),
     modifiedAt: modifiedAtField(),
   },
   (is) => [
     index("importSessions_userId_idx").on(is.userId),
     index("importSessions_status_idx").on(is.status),
+    index("importSessions_status_completedAt_idx").on(
+      is.status,
+      is.completedAt,
+    ),
   ],
 );
 
@@ -892,7 +1054,6 @@ export const importSessionBookmarks = sqliteTable(
     createdAt: createdAtField(),
   },
   (isb) => [
-    index("importSessionBookmarks_sessionId_idx").on(isb.importSessionId),
     index("importSessionBookmarks_bookmarkId_idx").on(isb.bookmarkId),
     unique().on(isb.importSessionId, isb.bookmarkId),
   ],
@@ -918,6 +1079,7 @@ export const importStagingBookmarks = sqliteTable(
     tags: text("tags", { mode: "json" }).$type<string[]>(),
     listIds: text("listIds", { mode: "json" }).$type<string[]>(),
     sourceAddedAt: integer("sourceAddedAt", { mode: "timestamp" }),
+    archived: integer("archived", { mode: "boolean" }),
 
     // Processing state
     status: text("status", {
@@ -947,6 +1109,7 @@ export const importStagingBookmarks = sqliteTable(
       isb.status,
     ),
     index("importStaging_completedAt_idx").on(isb.completedAt),
+    index("importStaging_resultBookmarkId_idx").on(isb.resultBookmarkId),
     index("importStaging_status_idx").on(isb.status),
     index("importStaging_status_processingStartedAt_idx").on(
       isb.status,
@@ -962,8 +1125,10 @@ export const userRelations = relations(users, ({ many, one }) => ({
   bookmarks: many(bookmarks),
   webhooks: many(webhooksTable),
   rules: many(ruleEngineRulesTable),
+  chatSessions: many(chatSessions),
   invites: many(invites),
   subscription: one(subscriptions),
+  inAppSubscription: one(inAppSubscriptions),
   importSessions: many(importSessions),
   listCollaborations: many(listCollaborators),
   backups: many(backupsTable),
@@ -1156,15 +1321,33 @@ export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
   }),
 }));
 
-export const passwordResetTokensRelations = relations(
-  passwordResetTokens,
+export const inAppSubscriptionsRelations = relations(
+  inAppSubscriptions,
   ({ one }) => ({
     user: one(users, {
-      fields: [passwordResetTokens.userId],
+      fields: [inAppSubscriptions.userId],
       references: [users.id],
     }),
   }),
 );
+
+export const chatSessionsRelations = relations(
+  chatSessions,
+  ({ one, many }) => ({
+    user: one(users, {
+      fields: [chatSessions.userId],
+      references: [users.id],
+    }),
+    messages: many(chatMessages),
+  }),
+);
+
+export const chatMessagesRelations = relations(chatMessages, ({ one }) => ({
+  chat: one(chatSessions, {
+    fields: [chatMessages.chatId],
+    references: [chatSessions.id],
+  }),
+}));
 
 export const importSessionsRelations = relations(
   importSessions,

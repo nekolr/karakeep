@@ -4,18 +4,12 @@ description: "Common setup steps for Actions"
 runs:
   using: composite
   steps:
-    - uses: pnpm/action-setup@v2
-    - uses: actions/setup-node@v4
+    - uses: pnpm/action-setup@v6.0.8
+    - uses: actions/setup-node@v4.4.0
       with:
         node-version: 24
         cache: "pnpm"
         registry-url: https://registry.npmjs.org
-
-    - shell: bash
-      run: pnpm add -g turbo
-
-    - shell: bash
-      run: npm install -g corepack@0.31.0 && corepack enable
 
     - shell: bash
       run: pnpm install

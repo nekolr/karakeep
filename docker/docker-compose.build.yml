@@ -1,9 +1,18 @@
 services:
   web:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     build:
       dockerfile: docker/Dockerfile
       context: ..
       target: aio
+      args:
+        SERVER_VERSION: ${KARAKEEP_VERSION:-release}
+        DEBIAN_APT_MIRROR: ${DEBIAN_APT_MIRROR:-http://mirrors.aliyun.com/debian}
+        DEBIAN_SECURITY_APT_MIRROR: ${DEBIAN_SECURITY_APT_MIRROR:-http://mirrors.aliyun.com/debian-security}
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmmirror.com/}
+        CARGO_REGISTRIES_CRATES_IO_INDEX: ${CARGO_REGISTRIES_CRATES_IO_INDEX:-https://rsproxy.cn/crates.io-index}
+        CARGO_REGISTRIES_CRATES_IO_PROTOCOL: ${CARGO_REGISTRIES_CRATES_IO_PROTOCOL:-sparse}
     restart: unless-stopped
     volumes:
       - data:/data
@@ -12,12 +21,19 @@ services:
       BROWSER_WEB_URL: http://chrome:9222
       DATA_DIR: /data
   chrome:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     image: karakeep/chrome-desktop:${KARAKEEP_CHROME_TAG:-local}
     build:
       context: ./chrome-desktop
       args:
+        UBUNTU_IMAGE: ${UBUNTU_IMAGE:-ubuntu:24.04}
         UBUNTU_APT_MIRROR: ${UBUNTU_APT_MIRROR:-http://mirrors.aliyun.com/ubuntu/}
+        GOOGLE_CHROME_VERSION: ${GOOGLE_CHROME_VERSION:-157.0.8103.38}
+        CHROME_DOWNLOAD_URL: ${CHROME_DOWNLOAD_URL:-}
+        CHROME_DOWNLOAD_PROXY: ${CHROME_DOWNLOAD_PROXY:-}
     restart: unless-stopped
+    init: true
     shm_size: 1gb
     cap_add:
       - SYS_ADMIN
@@ -27,8 +43,9 @@ services:
       CHROME_PROXY_BYPASS_LIST: ${CHROME_PROXY_BYPASS_LIST:-}
       CHROME_PROXY_PAC_URL: ${CHROME_PROXY_PAC_URL:-}
       CHROME_DISABLE_SANDBOX: ${CHROME_DISABLE_SANDBOX:-false}
+      CHROME_EXTRA_ARGS: ${CHROME_EXTRA_ARGS:-}
   meilisearch:
-    image: getmeili/meilisearch:v1.37.0
+    image: getmeili/meilisearch:v1.55.0
     restart: unless-stopped
     environment:
       MEILI_NO_ANALYTICS: "true"
@@ -38,7 +55,3 @@ services:
 volumes:
   meilisearch:
   data:
-
-
-
-

@@ -15,7 +15,7 @@ export default function ServerAddress() {
   const iconColor = colorScheme === "dark" ? "#d1d5db" : "#374151";
   const { settings, setSettings } = useAppSettings();
   const [address, setAddress] = useState(
-    settings.address ?? "https://cloud.karakeep.app",
+    settings.address ?? "https://cloud.karakeep.com",
   );
   const [error, setError] = useState<string | undefined>();
 
@@ -89,9 +89,16 @@ export default function ServerAddress() {
 
   return (
     <KeyboardAwareScrollView
-      contentContainerClassName="items-center gap-4 px-4 py-4"
+      contentContainerStyle={{
+        alignItems: "center",
+        gap: 16,
+        paddingHorizontal: 16,
+        paddingTop: 16,
+        paddingBottom: 96,
+      }}
       bottomOffset={20}
       keyboardShouldPersistTaps="handled"
+      keyboardDismissMode="interactive"
       contentInsetAdjustmentBehavior="automatic"
     >
       {/* Error Message */}
@@ -113,7 +120,7 @@ export default function ServerAddress() {
             Enter the URL of your Karakeep server
           </Text>
           <Input
-            placeholder="https://cloud.karakeep.app"
+            placeholder="https://cloud.karakeep.com"
             value={address}
             onChangeText={(text) => {
               setAddress(text);
@@ -131,15 +138,15 @@ export default function ServerAddress() {
       </View>
 
       {/* Custom Headers Section */}
-      <View className="w-full">
-        <Text className="mb-2 px-1 text-sm font-medium text-muted-foreground">
+      <View className="w-full items-center">
+        <Text className="mb-2 px-1 text-center text-sm font-medium text-muted-foreground">
           Custom Headers
           {headers.length > 0 && (
             <Text className="text-muted-foreground"> ({headers.length})</Text>
           )}
         </Text>
         <View className="w-full gap-3 rounded-lg bg-card px-4 py-4">
-          <Text className="text-sm text-muted-foreground">
+          <Text className="text-center text-sm text-muted-foreground">
             Add custom HTTP headers for API requests
           </Text>
 

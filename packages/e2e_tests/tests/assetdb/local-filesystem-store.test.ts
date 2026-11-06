@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { LocalFileSystemAssetStore } from "@karakeep/shared/assetdb";
+import { LocalFileSystemAssetStore } from "@karakeep/plugins/assetstore-filesystem/implementation";
 
 import {
   assertAssetNotExists,
@@ -196,6 +196,35 @@ describe("LocalFileSystemAssetStore - Filesystem-Specific Behaviors", () => {
           .then(() => true)
           .catch(() => false),
       ).toBe(false);
+    });
+
+    it("should reject asset ids that escape the user directory", async () => {
+      const victim = createTestAssetData({ userId: "victim" });
+      await store.saveAsset({
+        userId: victim.userId,
+        assetId: victim.assetId,
+        asset: victim.content,
+        metadata: victim.metadata,
+      });
+
+      for (const assetId of [
+        "..",
+        "../..",
+        `../${victim.userId}`,
+        `../${victim.userId}/${victim.assetId}`,
+      ]) {
+        await expect(
+          store.deleteAsset({ userId: "attacker", assetId }),
+        ).rejects.toThrow("Invalid asset path");
+      }
+
+      const victimAssetDir = path.join(tempDir, victim.userId, victim.assetId);
+      expect(
+        await fs.promises
+          .access(victimAssetDir)
+          .then(() => true)
+          .catch(() => false),
+      ).toBe(true);
     });
   });
 

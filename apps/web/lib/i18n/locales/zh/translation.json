@@ -46,7 +46,7 @@
     "last_used": "上次使用"
   },
   "layouts": {
-    "masonry": "砌体",
+    "masonry": "瀑布流",
     "grid": "网格",
     "list": "列表",
     "compact": "紧凑"
@@ -59,9 +59,9 @@
     "unfavorite": "取消收藏",
     "delete": "删除",
     "refresh": "刷新",
-    "download_full_page_archive": "下载完整页面归档",
     "edit_tags": "编辑标签",
     "add_to_list": "添加到列表",
+    "select": "选择",
     "select_all": "全选",
     "unselect_all": "取消全选",
     "copy_link": "复制链接",
@@ -96,6 +96,7 @@
     "load_more": "加载更多",
     "edit_notes": "编辑备注",
     "preserve_as_pdf": "另存为 PDF",
+    "preserve_video": "保存视频",
     "offline_copies": "离线副本",
     "preserve_offline_archive": "保留离线存档",
     "download_full_page_archive_file": "下载存档文件",
@@ -104,7 +105,8 @@
     "more": "更多",
     "replace_banner": "替换横幅",
     "add_banner": "添加横幅",
-    "download": "下载"
+    "download": "下载",
+    "rename": "重命名"
   },
   "settings": {
     "back_to_app": "返回应用",
@@ -226,7 +228,9 @@
       "import_bookmarks_from_linkwarden_export": "导入 Linkwarden 导出的书签",
       "import_bookmarks_from_tab_session_manager_export": "从 Tab Session Manager 导入书签",
       "import_bookmarks_from_mymind_export": "从我的 mind 导出导入书签",
-      "import_bookmarks_from_instapaper_export": "从 Instapaper 导出内容导入书签"
+      "import_bookmarks_from_instapaper_export": "从 Instapaper 导出内容导入书签",
+      "import_bookmarks_from_readwise_reader_export": "从 Readwise Reader 导出文件导入书签",
+      "import_bookmarks_from_onetab_export": "从 OneTab 导出导入书签"
     },
     "api_keys": {
       "api_keys": "API密钥",
@@ -238,13 +242,145 @@
       "key_regenerated": "密钥已成功重新生成",
       "key_regenerated_please_copy": "请复制新密钥并将其保存在安全的地方。旧密钥已被撤销，将不再起作用。",
       "regenerate_warning": "你确定要重新生成 API 密钥“{{name}}”吗？",
-      "regenerate_confirmation": "这将撤销当前密钥并生成一个新密钥。任何使用当前密钥的应用程序都将停止工作。"
+      "regenerate_confirmation": "这将撤销当前密钥并生成一个新密钥。任何使用当前密钥的应用程序都将停止工作。",
+      "scopes": {
+        "scopes": "作用域",
+        "choose_at_least_one": "请至少选择一个作用域或选择完全访问权限。",
+        "scope_details": "{{scope}} 作用域详情",
+        "access": {
+          "none": "无",
+          "read": "读取",
+          "readwrite": "读/写"
+        },
+        "full_access": {
+          "label": "完全访问权限",
+          "description": "访问所有支持的 API 操作。"
+        },
+        "limited_scopes": {
+          "label": "受限作用域",
+          "description": "选择此密钥可以访问的资源类型。"
+        },
+        "resources": {
+          "assets": {
+            "label": "资产",
+            "description": "访问文件和其他存储的书签内容。"
+          },
+          "backups": {
+            "label": "备份",
+            "description": "管理账户备份。"
+          },
+          "bookmarks": {
+            "label": "书签",
+            "description": "访问并管理书签。"
+          },
+          "feeds": {
+            "label": "馈送",
+            "description": "管理 RSS 馈送及相关的馈送数据。"
+          },
+          "highlights": {
+            "label": "高亮",
+            "description": "管理保存的书签高亮。"
+          },
+          "lists": {
+            "label": "列表",
+            "description": "管理列表和列表成员身份。"
+          },
+          "prompts": {
+            "label": "提示词",
+            "description": "管理保存的 AI 提示词配置。"
+          },
+          "rules": {
+            "label": "规则",
+            "description": "访问自动化规则。"
+          },
+          "tags": {
+            "label": "标签",
+            "description": "访问并修改标签。"
+          },
+          "users": {
+            "label": "用户账户",
+            "description": "访问账户个人资料和设置。"
+          },
+          "webhooks": {
+            "label": "Webhook",
+            "description": "访问 Webhook 配置。"
+          },
+          "subscriptions": {
+            "label": "订阅",
+            "description": "访问订阅管理。"
+          },
+          "importSessions": {
+            "label": "导入会话",
+            "description": "访问导入会话。"
+          }
+        },
+        "admin_resources": {
+          "bookmarks": {
+            "label": "管理：书签",
+            "description": "访问管理书签工具。"
+          },
+          "jobs": {
+            "label": "管理：任务",
+            "description": "访问后台任务控制。"
+          },
+          "system": {
+            "label": "管理员：系统",
+            "description": "访问系统状态和诊断。"
+          },
+          "users": {
+            "label": "管理员：用户",
+            "description": "访问管理用户管理。"
+          },
+          "subscriptions": {
+            "label": "管理：订阅",
+            "description": "管理用户订阅层级。"
+          }
+        }
+      }
     },
     "broken_links": {
       "broken_links": "失效链接",
       "last_crawled_at": "最后抓取时间",
       "crawling_status": "抓取状态",
-      "crawling_failed": "抓取失败"
+      "crawling_failed": "抓取失败",
+      "description": "查看无法获取的链接，重试抓取或删除旧书签。",
+      "category_all": "需要处理",
+      "category_blocked": "访问被阻止",
+      "category_missing": "未找到",
+      "category_errors": "其他错误",
+      "category_all_hint": "待检查的链接",
+      "category_blocked_hint": "受限或被限流",
+      "category_missing_hint": "页面不存在或已被移除",
+      "category_errors_hint": "服务器错误或抓取失败",
+      "blocked_hint": "请求被阻止并不一定意味着链接已失效。有些网站会限制自动访问。删除前请先打开原始页面确认。",
+      "search": "按标题或 URL 搜索…",
+      "sort_recent": "最近检查",
+      "sort_oldest": "最早检查优先",
+      "sort_domain": "网站 A–Z",
+      "result_count_other": "{{count}} 个待检查的链接",
+      "retry_selected": "重试所选",
+      "empty": "未发现失效链接",
+      "empty_description": "你保存的链接目前都没有报告抓取错误。",
+      "select_visible": "选择所有可见链接",
+      "bookmark": "书签",
+      "issue": "问题",
+      "never_crawled": "无抓取日期",
+      "issue_blocked": "访问被阻止",
+      "issue_missing": "未找到",
+      "issue_server": "服务器错误",
+      "issue_http": "HTTP 错误",
+      "issue_failed": "抓取失败",
+      "issue_blocked_hint": "该网站限制了此请求",
+      "issue_missing_hint": "该页面可能已被移除",
+      "issue_server_hint": "该网站无法完成请求",
+      "issue_http_hint": "该网站返回了意外的响应",
+      "issue_failed_hint": "没有记录到成功的响应",
+      "queued": "已排队",
+      "queued_count_other": "已将 {{count}} 个链接加入重新抓取队列。",
+      "deleted_count_other": "已删除 {{count}} 个书签。",
+      "action_failed": "{{total}} 个中有 {{count}} 个失败。",
+      "delete_title_other": "删除 {{count}} 个书签？",
+      "delete_description": "这将永久删除所选书签及其保存的文件、高亮和笔记。此操作无法撤销。"
     },
     "webhooks": {
       "edit_webhook": "修改网络钩子",
@@ -303,7 +439,8 @@
         "or": "以下任一条件为真",
         "url_does_not_contain": "URL 不包含",
         "title_contains": "标题包含",
-        "title_does_not_contain": "标题不包含"
+        "title_does_not_contain": "标题不包含",
+        "bookmark_source_is": "书签来源为"
       },
       "actions_types": {
         "add_tag": "添加标签",
@@ -368,7 +505,8 @@
       },
       "activity_patterns": {
         "activity_by_hour": "按小时统计的活动",
-        "activity_by_day": "每日活动"
+        "activity_by_day": "每日活动",
+        "busiest_around": "最活跃时段：{{hour}} 左右"
       },
       "storage_breakdown": {
         "title": "存储细分"
@@ -397,7 +535,17 @@
       "approaching_quota_limit": "即将达到配额限制",
       "loading_usage": "正在加载使用信息...",
       "free": "免费",
-      "paid": "已付费"
+      "paid": "已付费",
+      "monthly": "按月",
+      "yearly": "按年",
+      "per_month": "月",
+      "per_year": "年",
+      "excl_vat": "不含增值税",
+      "yearly_savings": "节省 {{percent}}%",
+      "pro_feature_bookmarks": "50,000 个书签",
+      "pro_feature_storage": "50GB 存储空间",
+      "pro_feature_ai_tagging": "AI 驱动的标签功能",
+      "pro_feature_full_text_search": "全文检索"
     },
     "import_sessions": {
       "title": "导入会话",
@@ -409,13 +557,12 @@
       "progress": "进度",
       "status": {
         "pending": "待定",
-        "in_progress": "正在进行",
         "completed": "已完成",
         "failed": "失败",
-        "processing": "正在处理",
         "staging": "正在暂存",
         "running": "正在运行",
-        "paused": "已暂停"
+        "paused": "已暂停",
+        "archived": "已归档"
       },
       "badges": {
         "pending": "{{count}} 待定",
@@ -452,8 +599,12 @@
         "no_results": "没有找到符合此过滤器的结果。",
         "view_bookmark": "查看书签",
         "load_more": "加载更多",
-        "no_title": "没有标题"
-      }
+        "no_title": "没有标题",
+        "archived_results": "不再为已归档的导入会话保留单个书签结果。"
+      },
+      "finalize_dialog_title": "完成导入会话",
+      "finalize_dialog_description": "将“{{name}}”加入后台处理队列吗？暂存的书签将开始导入。",
+      "finalize_staging": "完成"
     },
     "backups": {
       "backups": "备份",
@@ -497,12 +648,25 @@
       },
       "dialogs": {
         "delete_backup_title": "删除备份？",
-        "delete_backup_description": "你确定要删除这个备份吗？这个操作没法撤销哦。"
+        "delete_backup_description": "你确定要删除这个备份吗？此操作无法撤销。"
       },
       "toasts": {
         "backup_queued": "备份任务已加入队列！很快就会处理。",
         "backup_deleted": "备份已删除！"
       }
+    },
+    "maintenance": {
+      "clear_filters": "清除筛选",
+      "clear_selection": "清除选择",
+      "delete_selected": "删除所选",
+      "try_again": "重试",
+      "sort": "排序方式",
+      "no_matches": "未找到匹配项",
+      "adjust_filters": "请尝试其他搜索或清除筛选。",
+      "select_item": "选择 {{name}}",
+      "selected": "已选择 {{count}} 项",
+      "showing": "显示 {{shown}} / {{total}}",
+      "load_more": "加载更多"
     }
   },
   "admin": {
@@ -515,18 +679,6 @@
     },
     "background_jobs": {
       "background_jobs": "后台任务",
-      "crawler_jobs": "爬虫任务",
-      "indexing_jobs": "索引任务",
-      "inference_jobs": "推理任务",
-      "tidy_assets_jobs": "整理资产任务",
-      "job": "任务",
-      "queued": "已排队",
-      "pending": "待处理",
-      "failed": "失败",
-      "feed_jobs": "RSS 订阅作业",
-      "video_jobs": "视频下载作业",
-      "webhook_jobs": "Webhook 作业",
-      "asset_preprocessing_jobs": "资源预处理作业",
       "jobs": {
         "crawler": {
           "title": "爬虫任务",
@@ -544,10 +696,6 @@
           "title": "资源预处理任务",
           "description": "图片和文档预处理（截图、文本提取等）"
         },
-        "tidy_assets": {
-          "title": "整理资源任务",
-          "description": "资源清理和存储优化"
-        },
         "video": {
           "title": "视频下载任务",
           "description": "视频提取和下载"
@@ -563,6 +711,10 @@
         "admin_maintenance": {
           "title": "管理员维护任务",
           "description": "管理清理和资产维护"
+        },
+        "embeddings": {
+          "title": "嵌入任务",
+          "description": "书签向量嵌入生成"
         }
       },
       "monitor_and_manage": "监控和管理后台任务队列和系统处理任务",
@@ -597,20 +749,11 @@
         "migrate_large_link_html_content": "将大型内联 HTML 内容移动到 Assets",
         "recrawl_pending_links_only": "仅重新抓取待处理的链接",
         "regenerate_ai_tags_for_pending_bookmarks_only": "仅为待处理的书签重新生成 AI 标签",
-        "regenerate_ai_summaries_for_pending_bookmarks_only": "仅为待处理的书签重新生成 AI 摘要"
+        "regenerate_ai_summaries_for_pending_bookmarks_only": "仅为待处理的书签重新生成 AI 摘要",
+        "regenerate_embeddings_for_pending_bookmarks_only": "仅为待处理书签重新生成嵌入",
+        "regenerate_embeddings_for_failed_bookmarks_only": "仅为失败的书签重新生成嵌入",
+        "regenerate_embeddings_for_all_bookmarks": "为所有书签重新生成嵌入"
       }
-    },
-    "actions": {
-      "recrawl_failed_links_only": "仅重新抓取失败链接",
-      "recrawl_all_links": "重新抓取所有链接",
-      "without_inference": "无推理",
-      "regenerate_ai_tags_for_failed_bookmarks_only": "仅为失败书签重新生成AI标签",
-      "regenerate_ai_tags_for_all_bookmarks": "为所有书签重新生成AI标签",
-      "reindex_all_bookmarks": "重新索引所有书签",
-      "compact_assets": "压缩资产",
-      "reprocess_assets_fix_mode": "重新处理资产(固定模式)",
-      "regenerate_ai_summaries_for_failed_bookmarks_only": "仅为失败的书签重新生成 AI 摘要",
-      "regenerate_ai_summaries_for_all_bookmarks": "为所有书签重新生成 AI 摘要"
     },
     "users_list": {
       "users_list": "用户列表",
@@ -635,7 +778,8 @@
         "not_configured": "未配置",
         "connected": "已连接",
         "disconnected": "已断开连接"
-      }
+      },
+      "vector_store": "向量存储"
     },
     "admin_tools": {
       "admin_tools": "管理工具",
@@ -671,12 +815,17 @@
       "retag_queued": "重新标记任务已进入队列",
       "resummarize_queued": "重新总结任务已在队列中",
       "view": "查看",
-      "fetch_error": "获取书签时出错"
+      "fetch_error": "获取书签时出错",
+      "embedding_status": "嵌入状态",
+      "regenerate_embedding": "重新生成嵌入",
+      "regenerate_embedding_queued": "嵌入重新生成任务已进入队列"
     }
   },
   "options": {
+    "theme": "主题",
     "dark_mode": "暗模式",
     "light_mode": "亮模式",
+    "system_mode": "跟随系统",
     "apps_extensions": "应用与扩展",
     "documentation": "文档",
     "follow_us_on_x": "在 X 上关注我们"
@@ -765,7 +914,18 @@
       "failed_to_accept": "接受邀请失败",
       "failed_to_decline": "拒绝邀请失败"
     },
-    "shared_lists": "共享列表"
+    "shared_lists": "共享列表",
+    "privacy": {
+      "public": "公共",
+      "shared": "已共享",
+      "private": "私有"
+    },
+    "summary_list_one": "{{count}} 列表",
+    "summary_list_other": "{{count}} 列表",
+    "summary_bookmark_one": "{{count}} 书签",
+    "summary_bookmark_other": "{{count}} 书签",
+    "items_count_one": "{{count}} 个项目",
+    "items_count_other": "{{count}} 个项目"
   },
   "tags": {
     "all_tags": "所有标签",
@@ -791,12 +951,19 @@
     "no_unused_tags_match_your_search": "没有未使用的标签符合你的搜索",
     "no_tags_match_your_search": "没有标签符合你的搜索内容",
     "search_placeholder": "搜索标签...",
-    "search_or_create_placeholder": "搜索或创建标签..."
+    "search_or_create_placeholder": "搜索或创建标签...",
+    "rename_tag": "重命名标签",
+    "items_count": "{{count}} 个项目",
+    "attached_by_you": "{{count}} 个由您创建",
+    "attached_by_ai": "{{count}} 个由 AI 创建"
   },
   "preview": {
     "view_original": "查看原文",
     "cached_content": "缓存内容",
     "reader_view": "阅读器视图",
+    "page_overview": "页面概览",
+    "try_reader_view": "试试阅读器视图",
+    "archived_page": "已归档页面",
     "tabs": {
       "content": "内容",
       "details": "详情"
@@ -810,7 +977,6 @@
     "continue_button": "继续"
   },
   "editor": {
-    "quickly_focus": "您可以按⌘ + E快速聚焦到此字段",
     "multiple_urls_dialog_title": "将URL导入为单独的书签？",
     "multiple_urls_dialog_desc": "输入包含多行上的多个URL。您要将它们作为单独的书签导入吗？",
     "import_as_text": "作为文本书签导入",
@@ -877,6 +1043,7 @@
       "delete_from_list": "书签已从列表中删除",
       "clipboard_copied": "链接已添加到您的剪贴板！",
       "preserve_pdf": "已触发 PDF 保存",
+      "preserve_video": "已触发视频下载",
       "update_banner": "横幅已更新！",
       "uploading_banner": "正在上传横幅..."
     },
@@ -888,7 +1055,9 @@
     },
     "tags": {
       "created": "标签已创建！",
-      "failed_to_create": "创建标签失败"
+      "failed_to_create": "创建标签失败",
+      "updated": "标签已更新！",
+      "failed_to_update": "更新标签失败"
     }
   },
   "cleanups": {
@@ -905,6 +1074,10 @@
     "is_not_archived": "未存档",
     "has_any_tag": "有任何标签",
     "has_no_tags": "没有标签",
+    "has_notes": "有笔记",
+    "has_no_notes": "没有笔记",
+    "has_highlights": "有高亮",
+    "has_no_highlights": "没有高亮",
     "is_in_any_list": "在任何列表里",
     "is_not_in_any_list": "不在任何列表里",
     "created_on_or_after": "创建于或晚于",
@@ -945,12 +1118,24 @@
     "lists": "列表",
     "feeds": "订阅",
     "is_from_source": "来源是",
-    "is_not_from_source": "来源不是"
+    "is_not_from_source": "来源不是",
+    "mode_label": "搜索模式",
+    "mode_label_description": "选择 Karakeep 查找匹配书签的方式。",
+    "mode_keyword": "关键词",
+    "mode_keyword_description": "匹配标题、内容、URL 和备注中的精确词汇。几乎瞬间完成。",
+    "mode_hybrid": "混合",
+    "mode_hybrid_description": "将精确匹配与相关概念相结合，以获得最佳平衡。比关键词搜索慢。",
+    "mode_semantic": "语义",
+    "mode_semantic_description": "即使没有共同的词汇，也能找到概念相似的书签。比关键词搜索慢。",
+    "keyword_placeholder": "搜索标题、文本、URL 和标签…",
+    "hybrid_placeholder": "按词汇或含义搜索…",
+    "semantic_placeholder": "描述你记忆中的内容…"
   },
   "dialogs": {
     "bookmarks": {
       "delete_confirmation_title": "删除书签？",
-      "delete_confirmation_description": "是否确定要删除此标签？"
+      "delete_confirmation_description": "是否确定要删除此标签？",
+      "bulk_delete_confirmation_description": "您确定要删除 {{count}} 个书签吗？"
     }
   },
   "highlights": {
@@ -985,14 +1170,14 @@
     "image_fit_contain": "包含（适应）"
   },
   "version": {
-    "new_release_available": "有新的版本说明啦",
-    "whats_new_title": "v{{version}} 有啥新玩意儿？",
-    "release_notes_description": "这是从 GitHub 版本说明里搞来的最新更新。",
-    "loading_release_notes": "加载版本说明中……",
-    "unable_to_load_release_notes": "现在没法加载版本说明。稍后再试试呗。",
-    "no_release_notes": "这个版本没发布版本说明。",
-    "release_notes_synced": "版本说明是从 GitHub 同步过来的。",
-    "view_on_github": "在 GitHub 上瞅瞅"
+    "new_release_available": "有新的版本说明",
+    "whats_new_title": "v{{version}} 最近更新",
+    "release_notes_description": "以下是从 GitHub 发布说明中获取的最新更新。",
+    "loading_release_notes": "正在加载版本说明...",
+    "unable_to_load_release_notes": "目前无法加载版本说明。请稍后重试。",
+    "no_release_notes": "此版本没有发布版本说明。",
+    "release_notes_synced": "版本说明已从 GitHub 同步。",
+    "view_on_github": "在 GitHub 上查看"
   },
   "wrapped": {
     "title": "你的 {{year}} 年终报告",
@@ -1042,5 +1227,28 @@
     "download": "下载",
     "close": "关闭",
     "generating": "正在生成..."
+  },
+  "keyboard_shortcuts": {
+    "title": "键盘快捷键",
+    "sections": {
+      "navigation": "导航",
+      "actions": "操作",
+      "selection": "选择",
+      "other": "其他"
+    },
+    "move_left": "向左移动",
+    "move_down": "向下移动",
+    "move_up": "向上移动",
+    "move_right": "向右移动",
+    "open_bookmark": "打开书签",
+    "clear_focus": "取消焦点 / 退出批量编辑",
+    "toggle_favorite": "切换收藏状态",
+    "toggle_archive": "归档 / 取消归档",
+    "delete_bookmark": "删除书签",
+    "toggle_selection": "切换选择状态",
+    "select_all": "全选",
+    "deselect_all": "取消全选",
+    "show_help": "显示键盘快捷键",
+    "focus_search_alt": "聚焦搜索"
   }
 }

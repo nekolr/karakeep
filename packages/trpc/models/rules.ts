@@ -12,7 +12,7 @@ import {
   zNewRuleEngineRuleSchema,
   zRuleEngineActionSchema,
   zRuleEngineConditionSchema,
-  zRuleEngineEventSchema,
+  zRuleEngineRuleEventSchema,
   zUpdateRuleEngineRuleSchema,
 } from "@karakeep/shared/types/rules";
 
@@ -48,7 +48,7 @@ export class RuleEngineRuleModel {
       name: ruleData.name,
       description: ruleData.description,
       enabled: ruleData.enabled,
-      event: zRuleEngineEventSchema.parse(JSON.parse(ruleData.event)),
+      event: zRuleEngineRuleEventSchema.parse(JSON.parse(ruleData.event)),
       condition: zRuleEngineConditionSchema.parse(
         JSON.parse(ruleData.condition),
       ),
@@ -87,8 +87,8 @@ export class RuleEngineRuleModel {
     input: z.infer<typeof zNewRuleEngineRuleSchema>,
   ): Promise<RuleEngineRuleModel> {
     // Similar to lists create, but for rules
-    const insertedRule = await ctx.db.transaction(async (tx) => {
-      const [newRule] = await tx
+    const insertedRule = await ctx.db.transaction((tx) => {
+      const [newRule] = tx
         .insert(ruleEngineRulesTable)
         .values({
           name: input.name,
@@ -97,34 +97,32 @@ export class RuleEngineRuleModel {
           event: JSON.stringify(input.event),
           condition: JSON.stringify(input.condition),
           userId: ctx.user.id,
-          listId:
-            input.event.type === "addedToList" ||
-            input.event.type === "removedFromList"
-              ? input.event.listId
-              : null,
           tagId:
             input.event.type === "tagAdded" || input.event.type === "tagRemoved"
               ? input.event.tagId
               : null,
         })
-        .returning();
+        .returning()
+        .all();
 
       if (input.actions.length > 0) {
-        await tx.insert(ruleEngineActionsTable).values(
-          input.actions.map((action) => ({
-            ruleId: newRule.id,
-            userId: ctx.user.id,
-            action: JSON.stringify(action),
-            listId:
-              action.type === "addToList" || action.type === "removeFromList"
-                ? action.listId
-                : null,
-            tagId:
-              action.type === "addTag" || action.type === "removeTag"
-                ? action.tagId
-                : null,
-          })),
-        );
+        tx.insert(ruleEngineActionsTable)
+          .values(
+            input.actions.map((action) => ({
+              ruleId: newRule.id,
+              userId: ctx.user.id,
+              action: JSON.stringify(action),
+              listId:
+                action.type === "addToList" || action.type === "removeFromList"
+                  ? action.listId
+                  : null,
+              tagId:
+                action.type === "addTag" || action.type === "removeTag"
+                  ? action.tagId
+                  : null,
+            })),
+          )
+          .run();
       }
       return newRule;
     });
@@ -140,8 +138,8 @@ export class RuleEngineRuleModel {
       throw new TRPCError({ code: "BAD_REQUEST", message: "ID mismatch" });
     }
 
-    await this.ctx.db.transaction(async (tx) => {
-      const result = await tx
+    await this.ctx.db.transaction((tx) => {
+      const result = tx
         .update(ruleEngineRulesTable)
         .set({
           name: input.name,
@@ -149,11 +147,6 @@ export class RuleEngineRuleModel {
           enabled: input.enabled,
           event: JSON.stringify(input.event),
           condition: JSON.stringify(input.condition),
-          listId:
-            input.event.type === "addedToList" ||
-            input.event.type === "removedFromList"
-              ? input.event.listId
-              : null,
           tagId:
             input.event.type === "tagAdded" || input.event.type === "tagRemoved"
               ? input.event.tagId
@@ -164,31 +157,34 @@ export class RuleEngineRuleModel {
             eq(ruleEngineRulesTable.id, input.id),
             eq(ruleEngineRulesTable.userId, this.ctx.user.id),
           ),
-        );
+        )
+        .run();
 
       if (result.changes === 0) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Rule not found" });
       }
 
       if (input.actions.length > 0) {
-        await tx
-          .delete(ruleEngineActionsTable)
-          .where(eq(ruleEngineActionsTable.ruleId, input.id));
-        await tx.insert(ruleEngineActionsTable).values(
-          input.actions.map((action) => ({
-            ruleId: input.id,
-            userId: this.ctx.user.id,
-            action: JSON.stringify(action),
-            listId:
-              action.type === "addToList" || action.type === "removeFromList"
-                ? action.listId
-                : null,
-            tagId:
-              action.type === "addTag" || action.type === "removeTag"
-                ? action.tagId
-                : null,
-          })),
-        );
+        tx.delete(ruleEngineActionsTable)
+          .where(eq(ruleEngineActionsTable.ruleId, input.id))
+          .run();
+        tx.insert(ruleEngineActionsTable)
+          .values(
+            input.actions.map((action) => ({
+              ruleId: input.id,
+              userId: this.ctx.user.id,
+              action: JSON.stringify(action),
+              listId:
+                action.type === "addToList" || action.type === "removeFromList"
+                  ? action.listId
+                  : null,
+              tagId:
+                action.type === "addTag" || action.type === "removeTag"
+                  ? action.tagId
+                  : null,
+            })),
+          )
+          .run();
       }
     });
 

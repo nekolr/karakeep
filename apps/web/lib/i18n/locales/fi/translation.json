@@ -60,9 +60,9 @@
     "delete": "Poista",
     "refresh": "Päivitä",
     "recrawl": "Uudelleenindeksoi",
-    "download_full_page_archive": "Lataa koko sivun arkisto",
     "edit_tags": "Muokkaa tunnisteita",
     "add_to_list": "Lisää listaan",
+    "select": "Valitse",
     "select_all": "Valitse kaikki",
     "unselect_all": "Poista valinnat",
     "copy_link": "Kopioi linkki",
@@ -96,6 +96,7 @@
     "load_more": "Lataa lisää",
     "edit_notes": "Muokkaa muistiinpanoja",
     "preserve_as_pdf": "Säilytä PDF-muodossa",
+    "preserve_video": "Säilytä video",
     "offline_copies": "Offline-kopiot",
     "preserve_offline_archive": "Säilytä offline-arkisto",
     "download_full_page_archive_file": "Lataa arkistotiedosto",
@@ -104,10 +105,11 @@
     "more": "Lisää",
     "replace_banner": "Korvaa banneri",
     "add_banner": "Lisää banneri",
-    "download": "Lataa"
+    "download": "Lataa",
+    "rename": "Nimeä uudelleen"
   },
   "highlights": {
-    "no_highlights": "Sulla ei oo vielä yhtään korostusta."
+    "no_highlights": "Sinulla ei ole vielä yhtään korostusta."
   },
   "settings": {
     "back_to_app": "Takaisin sovellukseen",
@@ -242,13 +244,14 @@
       "import_bookmarks_from_matter_export": "Tuo kirjanmerkit Matter-viennistä",
       "import_bookmarks_from_omnivore_export": "Tuo kirjanmerkit Omnivore-viennistä",
       "import_bookmarks_from_linkwarden_export": "Tuo kirjanmerkit Linkwarden-viennistä",
-      "import_bookmarks_from_hoarder_export": "Tuo kirjanmerkit Hoarder-viennistä",
       "export_links_and_notes": "Vie linkit ja muistiinpanot",
       "imported_bookmarks": "Tuodut kirjanmerkit",
       "import_bookmarks_from_karakeep_export": "Tuo kirjanmerkit Karakeep-viennistä",
       "import_bookmarks_from_tab_session_manager_export": "Tuo kirjanmerkit Tab Session Managerista",
       "import_bookmarks_from_mymind_export": "Tuodaan kirjanmerkit mymind-viennistä",
-      "import_bookmarks_from_instapaper_export": "Importoi kirjanmerkit Instapaper-viennistä"
+      "import_bookmarks_from_instapaper_export": "Importoi kirjanmerkit Instapaper-viennistä",
+      "import_bookmarks_from_readwise_reader_export": "Tuo kirjanmerkit Readwise Reader -viennistä",
+      "import_bookmarks_from_onetab_export": "Tuo kirjanmerkit OneTab-viennistä"
     },
     "api_keys": {
       "key_success_please_copy": "Ole hyvä ja kopioi avain ja säilytä se turvallisessa paikassa. Kun suljet valintaikkunan, et voi enää käyttää sitä.",
@@ -260,13 +263,149 @@
       "key_regenerated": "Avain onnistuneesti uusittu",
       "key_regenerated_please_copy": "Ole hyvä ja kopioi uusi avain turvalliseen paikkaan. Vanha avain on kumottu eikä toimi enää.",
       "regenerate_warning": "Oletko varma, että haluat luoda API-avaimen uudelleen \"{{name}}\"?",
-      "regenerate_confirmation": "Tämä peruuttaa nykyisen avaimen ja luo uuden. Kaikki nykyistä avainta käyttävät sovellukset lakkaavat toimimasta."
+      "regenerate_confirmation": "Tämä peruuttaa nykyisen avaimen ja luo uuden. Kaikki nykyistä avainta käyttävät sovellukset lakkaavat toimimasta.",
+      "scopes": {
+        "scopes": "Käyttöalueet",
+        "choose_at_least_one": "Valitse vähintään yksi käyttöalue tai valitse täydet oikeudet.",
+        "scope_details": "{{scope}}-käyttöalueen tiedot",
+        "access": {
+          "none": "Ei mitään",
+          "read": "Luku",
+          "readwrite": "Luku/kirjoitus"
+        },
+        "full_access": {
+          "label": "Täydet oikeudet",
+          "description": "Pääsy kaikkiin tuettuihin API-toimintoihin."
+        },
+        "limited_scopes": {
+          "label": "Rajoitetut käyttöalueet",
+          "description": "Valitse resurssityypit, joihin tällä avaimella on pääsy."
+        },
+        "resources": {
+          "assets": {
+            "label": "Aineistot",
+            "description": "Pääsy tiedostoihin ja muuhun tallennettuun kirjanmerkkisisältöön."
+          },
+          "backups": {
+            "label": "Varmuuskopiot",
+            "description": "Hallitse tilin varmuuskopioita."
+          },
+          "bookmarks": {
+            "label": "Kirjanmerkit",
+            "description": "Pääsy kirjanmerkkeihin ja niiden hallinta."
+          },
+          "feeds": {
+            "label": "Syötteet",
+            "description": "Hallitse RSS-syötteitä ja niihin liittyvää syötetietoa."
+          },
+          "highlights": {
+            "label": "Korostukset",
+            "description": "Hallitse tallennettuja kirjanmerkkien korostuksia."
+          },
+          "lists": {
+            "label": "Luettelot",
+            "description": "Hallitse luetteloita ja luetteloiden jäsenyyksiä."
+          },
+          "prompts": {
+            "label": "Kehotteet",
+            "description": "Hallitse tallennettuja tekoälykehotteiden määrityksiä."
+          },
+          "rules": {
+            "label": "Säännöt",
+            "description": "Käytä automaatiosääntöjä."
+          },
+          "tags": {
+            "label": "Tunnisteet",
+            "description": "Käytä ja muokkaa tunnisteita."
+          },
+          "users": {
+            "label": "Käyttäjätili",
+            "description": "Käytä tilin profiilia ja asetuksia."
+          },
+          "webhooks": {
+            "label": "Web-koukut",
+            "description": "Käytä web-koukkujen määrityksiä."
+          },
+          "subscriptions": {
+            "label": "Tilaukset",
+            "description": "Käytä tilausten hallintaa."
+          },
+          "importSessions": {
+            "label": "Tuontitapahtumat",
+            "description": "Käytä tuontitapahtumia."
+          }
+        },
+        "admin_resources": {
+          "bookmarks": {
+            "label": "Ylläpitäjä: kirjanmerkit",
+            "description": "Käytä ylläpidon kirjanmerkkityökaluja."
+          },
+          "jobs": {
+            "label": "Ylläpitäjä: työt",
+            "description": "Käytä taustatöiden ohjaimia."
+          },
+          "system": {
+            "label": "Ylläpitäjä: järjestelmä",
+            "description": "Pääsy järjestelmän tilaan ja diagnostiikkaan."
+          },
+          "users": {
+            "label": "Ylläpitäjä: käyttäjät",
+            "description": "Pääsy hallinnolliseen käyttäjänhallintaan."
+          },
+          "subscriptions": {
+            "label": "Ylläpito: tilaukset",
+            "description": "Hallinnoi käyttäjien tilaustasoja."
+          }
+        }
+      }
     },
     "broken_links": {
       "broken_links": "Rikkinäiset linkit",
       "last_crawled_at": "Viimeksi indeksoitu",
       "crawling_status": "Indeksointitila",
-      "crawling_failed": "Ryömintä epäonnistui"
+      "crawling_failed": "Ryömintä epäonnistui",
+      "description": "Tarkista linkit, joita ei voitu noutaa, yritä niitä uudelleen tai poista vanhoja kirjanmerkkejä.",
+      "category_all": "Vaatii huomiota",
+      "category_blocked": "Pääsy estetty",
+      "category_missing": "Ei löytynyt",
+      "category_errors": "Muut virheet",
+      "category_all_hint": "Tarkistettavat linkit",
+      "category_blocked_hint": "Rajoitettu tai pyyntömäärä ylitetty",
+      "category_missing_hint": "Sivu puuttuu tai on poistettu",
+      "category_errors_hint": "Palvelin- tai indeksointivirheet",
+      "blocked_hint": "Estetty pyyntö ei aina tarkoita rikkinäistä linkkiä. Jotkin sivustot rajoittavat automaattista käyttöä. Avaa alkuperäinen sivu ja tarkista ennen poistamista.",
+      "search": "Hae otsikolla tai URL-osoitteella…",
+      "sort_recent": "Viimeksi tarkistetut",
+      "sort_oldest": "Vanhin tarkistus ensin",
+      "sort_domain": "Sivusto A–Ö",
+      "result_count_one": "{{count}} tarkistettava linkki",
+      "result_count_other": "{{count}} tarkistettavaa linkkiä",
+      "retry_selected": "Yritä valittuja uudelleen",
+      "empty": "Rikkinäisiä linkkejä ei löytynyt",
+      "empty_description": "Yhdelläkään tallennetuista linkeistäsi ei ole tällä hetkellä raportoitua indeksointivirhettä.",
+      "select_visible": "Valitse kaikki näkyvät linkit",
+      "bookmark": "Kirjanmerkki",
+      "issue": "Ongelma",
+      "never_crawled": "Ei indeksointipäivää",
+      "issue_blocked": "Pääsy estetty",
+      "issue_missing": "Ei löytynyt",
+      "issue_server": "Palvelinvirhe",
+      "issue_http": "HTTP-virhe",
+      "issue_failed": "Indeksointi epäonnistui",
+      "issue_blocked_hint": "Sivusto rajoitti tätä pyyntöä",
+      "issue_missing_hint": "Sivu on ehkä poistettu",
+      "issue_server_hint": "Sivusto ei pystynyt suorittamaan pyyntöä",
+      "issue_http_hint": "Sivusto palautti odottamattoman vastauksen",
+      "issue_failed_hint": "Onnistunutta vastausta ei tallennettu",
+      "queued": "Jonossa",
+      "queued_count_one": "{{count}} linkki asetettu jonoon uudelleenindeksointia varten.",
+      "queued_count_other": "{{count}} linkkiä asetettu jonoon uudelleenindeksointia varten.",
+      "deleted_count_one": "{{count}} kirjanmerkki poistettu.",
+      "deleted_count_other": "{{count}} kirjanmerkkiä poistettu.",
+      "action_failed": "{{count}}/{{total}} epäonnistui.",
+      "delete_title_one": "Poistetaanko {{count}} kirjanmerkki?",
+      "delete_title_other": "Poistetaanko {{count}} kirjanmerkkiä?",
+      "delete_description": "Tämä poistaa valitut kirjanmerkit sekä niiden tallennetut tiedostot, kohokohdat ja muistiinpanot pysyvästi. Toimintoa ei voi kumota."
     },
     "manage_assets": {
       "manage_assets": "Hallitse resursseja",
@@ -294,7 +433,8 @@
         "or": "Mikä tahansa seuraavista on totta",
         "url_does_not_contain": "URL-osoite ei sisällä",
         "title_contains": "Otsikon sisältää",
-        "title_does_not_contain": "Otsikko ei sisällä"
+        "title_does_not_contain": "Otsikko ei sisällä",
+        "bookmark_source_is": "Kirjanmerkin lähde on"
       },
       "actions_types": {
         "download_full_page_archive": "Lataa koko sivun arkisto",
@@ -372,7 +512,8 @@
       },
       "activity_patterns": {
         "activity_by_hour": "Aktiivisuus tunneittain",
-        "activity_by_day": "Aktiivisuus päivittäin"
+        "activity_by_day": "Aktiivisuus päivittäin",
+        "busiest_around": "Vilkkainta noin klo {{hour}}"
       },
       "storage_breakdown": {
         "title": "Tallennustilan erittely"
@@ -401,7 +542,17 @@
       "approaching_quota_limit": "Kiintiöraja lähestyy",
       "loading_usage": "Käyttötietojen lataaminen...",
       "free": "Ilmainen",
-      "paid": "Maksullinen"
+      "paid": "Maksullinen",
+      "monthly": "Kuukausittain",
+      "yearly": "Vuosittain",
+      "per_month": "kuukausi",
+      "per_year": "vuosi",
+      "excl_vat": "alv 0 %",
+      "yearly_savings": "Säästä {{percent}} %",
+      "pro_feature_bookmarks": "50 000 kirjanmerkkiä",
+      "pro_feature_storage": "50 Gt tallennustilaa",
+      "pro_feature_ai_tagging": "Tekoälypohjainen tunnisteiden luonti",
+      "pro_feature_full_text_search": "Koko tekstin haku"
     },
     "import_sessions": {
       "title": "Sessioiden tuonti",
@@ -413,13 +564,12 @@
       "progress": "Edistyminen",
       "status": {
         "pending": "Odottaa",
-        "in_progress": "Käynnissä",
         "completed": "Valmis",
         "failed": "Epäonnistui",
-        "processing": "Käsitellään",
         "staging": "Valmistellaan",
         "running": "Käynnissä",
-        "paused": "Pysäytetty"
+        "paused": "Pysäytetty",
+        "archived": "Arkistoitu"
       },
       "badges": {
         "pending": "{{count}} odottaa",
@@ -456,8 +606,12 @@
         "no_results": "Tällä suodattimella ei löytynyt tuloksia.",
         "view_bookmark": "Näytä kirjanmerkki",
         "load_more": "Lataa lisää",
-        "no_title": "Ei otsikkoa"
-      }
+        "no_title": "Ei otsikkoa",
+        "archived_results": "Yksittäisiä kirjanmerkkituloksia ei enää säilytetä arkistoiduissa tuontistreameissa."
+      },
+      "finalize_dialog_title": "Viimeistele tuontistunto",
+      "finalize_dialog_description": "Lisätäänkö ”{{name}}” taustaprosessointijonoon? Valmistellut kirjanmerkit aletaan tuoda.",
+      "finalize_staging": "Viimeistele"
     },
     "backups": {
       "backups": "Varmuuskopiot",
@@ -507,6 +661,19 @@
         "backup_queued": "Varmuuskopiointityö on asetettu jonoon! Se käsitellään pian.",
         "backup_deleted": "Varmuuskopio on poistettu!"
       }
+    },
+    "maintenance": {
+      "clear_filters": "Tyhjennä suodattimet",
+      "clear_selection": "Tyhjennä valinta",
+      "delete_selected": "Poista valitut",
+      "try_again": "Yritä uudelleen",
+      "sort": "Lajittelujärjestys",
+      "no_matches": "Osumia ei löytynyt",
+      "adjust_filters": "Kokeile toista hakua tai tyhjennä suodattimet.",
+      "select_item": "Valitse {{name}}",
+      "selected": "{{count}} valittu",
+      "showing": "Näytetään {{shown}}/{{total}}",
+      "load_more": "Lataa lisää"
     }
   },
   "admin": {
@@ -519,18 +686,6 @@
     },
     "background_jobs": {
       "background_jobs": "Taustatyöt",
-      "crawler_jobs": "Indeksointityöt",
-      "indexing_jobs": "Töiden indeksointi",
-      "inference_jobs": "Päättelytyöt",
-      "tidy_assets_jobs": "Siisti resurssityöt",
-      "video_jobs": "Videon lataustyöt",
-      "webhook_jobs": "Webhook-työt",
-      "asset_preprocessing_jobs": "Resurssien esikäsittelytyöt",
-      "feed_jobs": "RSS-syötetyöt",
-      "job": "Työ",
-      "queued": "Jonossa",
-      "pending": "Odottaa",
-      "failed": "Epäonnistui",
       "jobs": {
         "crawler": {
           "title": "Indeksointityöt",
@@ -548,10 +703,6 @@
           "title": "Resurssien esikäsittelytyöt",
           "description": "Kuvien ja asiakirjojen esikäsittely (kuvakaappaukset, tekstin poisto jne.)"
         },
-        "tidy_assets": {
-          "title": "Siisti resurssi -työt",
-          "description": "Resurssien puhdistus ja tallennustilan optimointi"
-        },
         "video": {
           "title": "Videoiden lataustyöt",
           "description": "Videon poiminta ja lataus"
@@ -567,6 +718,10 @@
         "admin_maintenance": {
           "title": "Ylläpidon huoltotyöt",
           "description": "Hallinnollinen siivous ja resurssien ylläpito"
+        },
+        "embeddings": {
+          "title": "Upotustyöt",
+          "description": "Kirjanmerkkien vektoriupotusten luominen"
         }
       },
       "monitor_and_manage": "Seuraa ja hallitse taustatyöjonoja ja järjestelmän käsittelytehtäviä",
@@ -601,20 +756,11 @@
         "migrate_large_link_html_content": "Siirrä suurikokoinen sisäinen HTML-sisältö resurssitiedostoihin",
         "recrawl_pending_links_only": "Indeksoi odottavat linkit uudelleen",
         "regenerate_ai_tags_for_pending_bookmarks_only": "Luo AI-tunnisteet uudelleen vain odottaville kirjanmerkeille",
-        "regenerate_ai_summaries_for_pending_bookmarks_only": "Luo AI-yhteenvedot uudelleen vain odottaville kirjanmerkeille"
+        "regenerate_ai_summaries_for_pending_bookmarks_only": "Luo AI-yhteenvedot uudelleen vain odottaville kirjanmerkeille",
+        "regenerate_embeddings_for_pending_bookmarks_only": "Luo upotukset uudelleen vain odottaville kirjanmerkeille",
+        "regenerate_embeddings_for_failed_bookmarks_only": "Luo upotukset uudelleen vain epäonnistuneille kirjanmerkeille",
+        "regenerate_embeddings_for_all_bookmarks": "Luo upotukset uudelleen kaikille kirjanmerkeille"
       }
-    },
-    "actions": {
-      "recrawl_failed_links_only": "Indeksoi uudelleen vain epäonnistuneet linkit",
-      "recrawl_all_links": "Indeksoi kaikki linkit uudelleen",
-      "without_inference": "Ilman päättelyä",
-      "regenerate_ai_tags_for_all_bookmarks": "Luo uudelleen kaikki tekoälytunnisteet kirjanmerkeille",
-      "reindex_all_bookmarks": "Uudelleenindeksoi kaikki kirjanmerkit",
-      "compact_assets": "Tiivistetyt resurssit",
-      "reprocess_assets_fix_mode": "Käsittele resurssit uudelleen (korjaustila)",
-      "regenerate_ai_tags_for_failed_bookmarks_only": "Luo AI-tageja uudelleen vain epäonnistuneille kirjanmerkeille",
-      "regenerate_ai_summaries_for_failed_bookmarks_only": "Luo uudelleen tekoälyn yhteenvedot vain epäonnistuneille kirjanmerkeille",
-      "regenerate_ai_summaries_for_all_bookmarks": "Luo uudelleen tekoälyn yhteenvedot kaikille kirjanmerkeille"
     },
     "users_list": {
       "users_list": "Käyttäjäluettelo",
@@ -639,7 +785,8 @@
         "not_configured": "Ei määritetty",
         "connected": "Yhdistetty",
         "disconnected": "Katkaistu yhteys"
-      }
+      },
+      "vector_store": "Vektorivarasto"
     },
     "admin_tools": {
       "admin_tools": "Ylläpitäjän työkalut",
@@ -675,12 +822,17 @@
       "retag_queued": "Uudelleentaggaus on jonossa",
       "resummarize_queued": "Uudelleenluonti on jonossa",
       "view": "Näytä",
-      "fetch_error": "Virhe kirjanmerkin noudossa"
+      "fetch_error": "Virhe kirjanmerkin noudossa",
+      "embedding_status": "Upotuksen tila",
+      "regenerate_embedding": "Luo upotus uudelleen",
+      "regenerate_embedding_queued": "Upotuksen uudelleenluontityö on lisätty jonoon"
     }
   },
   "options": {
+    "theme": "Teema",
     "dark_mode": "Tumma tila",
     "light_mode": "Vaalea tila",
+    "system_mode": "Järjestelmän tila",
     "apps_extensions": "Sovellukset ja laajennukset",
     "documentation": "Dokumentaatio",
     "follow_us_on_x": "Seuraa meitä X:ssä"
@@ -740,10 +892,10 @@
       "owner": "Omistaja",
       "viewer_description": "Voi tarkastella kirjanmerkkejä luettelossa",
       "editor_description": "Voi lisätä ja poistaa kirjanmerkkejä",
-      "no_collaborators": "Ei vielä avustajia. Lisää joku, että pääsette hommiin!",
+      "no_collaborators": "Ei vielä avustajia. Lisää joku, jotta voitte aloittaa yhteistyön!",
       "no_collaborators_readonly": "Ei tällä listalla ole muita tekijöitä.",
-      "people_with_access": "Ihmisillä, joilla on pääsy tälle listalle",
-      "add_or_remove": "Lisää tai poista ihmisiä, keillä on pääsy tälle listalle.",
+      "people_with_access": "Henkilöt, joilla on pääsy tähän listaan",
+      "add_or_remove": "Lisää tai poista henkilöitä, joilla on pääsy tähän listaan.",
       "invitation_sent": "Kutsu lähetetty onnistuneesti",
       "invitation_revoked": "Kutsu peruttu",
       "failed_to_revoke": "Kutsun peruminen epäonnistui",
@@ -769,7 +921,18 @@
       "failed_to_accept": "Kutsun hyväksyminen epäonnistui",
       "failed_to_decline": "Kutsun hylkääminen epäonnistui"
     },
-    "shared_lists": "Jaetut listat"
+    "shared_lists": "Jaetut listat",
+    "privacy": {
+      "public": "Julkinen",
+      "shared": "Jaettu",
+      "private": "Yksityinen"
+    },
+    "summary_list_one": "{{count}} lista",
+    "summary_list_other": "{{count}} listaa",
+    "summary_bookmark_one": "{{count}} kirjanmerkki",
+    "summary_bookmark_other": "{{count}} kirjanmerkkiä",
+    "items_count_one": "{{count}} kohde",
+    "items_count_other": "{{count}} kohdetta"
   },
   "tags": {
     "all_tags": "Kaikki tunnisteet",
@@ -795,7 +958,11 @@
     "no_unused_tags_match_your_search": "Hakusi ei täsmää yhtään käyttämätöntä tunnistetta",
     "no_tags_match_your_search": "Hakusi ei täsmää yhtään tunnistetta",
     "search_placeholder": "Etsi tunnisteita...",
-    "search_or_create_placeholder": "Etsi tai luo tunnisteita..."
+    "search_or_create_placeholder": "Etsi tai luo tunnisteita...",
+    "rename_tag": "Nimeä tunniste uudelleen",
+    "items_count": "{{count}} kohdetta",
+    "attached_by_you": "{{count}} sinun luomaasi",
+    "attached_by_ai": "{{count}} tekoälyn luomaa"
   },
   "search": {
     "is_favorited": "On suosikki",
@@ -804,6 +971,10 @@
     "is_not_archived": "Ei ole arkistoitu",
     "has_any_tag": "On jokin tagi",
     "has_no_tags": "Ei tunnistetta",
+    "has_notes": "On muistiinpanoja",
+    "has_no_notes": "Ei muistiinpanoja",
+    "has_highlights": "On kohokohtia",
+    "has_no_highlights": "Ei kohokohtia",
     "is_in_any_list": "On jossain luettelossa",
     "is_not_in_any_list": "Ei ole missään listassa",
     "created_on_or_after": "Luotu aikaisintaan",
@@ -844,12 +1015,26 @@
     "lists": "Listat",
     "feeds": "Syötteet",
     "is_from_source": "Lähde on",
-    "is_not_from_source": "Lähdettä ei ole"
+    "is_not_from_source": "Lähdettä ei ole",
+    "mode_label": "Hakutila",
+    "mode_label_description": "Valitse, miten Karakeep löytää vastaavia kirjanmerkkejä.",
+    "mode_keyword": "Avainsana",
+    "mode_keyword_description": "Etsi tarkkoja sanoja otsikoista, sisällöstä, URL-osoitteista ja muistiinpanoista. Lähes välitön.",
+    "mode_hybrid": "Hybridi",
+    "mode_hybrid_description": "Yhdistä tarkat osumat ja niihin liittyvät aiheet parhaan tasapainon saavuttamiseksi. Hitaampi kuin avainsanahaku.",
+    "mode_semantic": "Semanttinen",
+    "mode_semantic_description": "Löydä käsitteellisesti samankaltaisia kirjanmerkkejä, vaikka niillä ei olisi yhteisiä sanoja. Hitaampi kuin avainsanahaku.",
+    "keyword_placeholder": "Hae otsikoista, tekstistä, URL-osoitteista ja tunnisteista…",
+    "hybrid_placeholder": "Hae sanoilla tai merkityksellä…",
+    "semantic_placeholder": "Kuvaile mitä muistat…"
   },
   "preview": {
     "view_original": "Näytä alkuperäinen",
     "cached_content": "Välimuistissa oleva sisältö",
     "reader_view": "Lukijanäkymä",
+    "page_overview": "Sivun yleiskatsaus",
+    "try_reader_view": "Kokeile lukijanäkymää",
+    "archived_page": "Arkistoitu sivu",
     "tabs": {
       "content": "Sisältö",
       "details": "Tiedot"
@@ -863,7 +1048,6 @@
     "continue_button": "Jatka"
   },
   "editor": {
-    "quickly_focus": "Voit nopeasti kohdistaa tähän kenttään painamalla ⌘ + E",
     "multiple_urls_dialog_title": "Tuodaanko URL-osoitteet erillisinä kirjanmerkkeinä?",
     "multiple_urls_dialog_desc": "Syöte sisältää useita URL-osoitteita erillisillä riveillä. Haluatko tuoda ne erillisinä kirjanmerkkeinä?",
     "import_as_text": "Tuo tekstikirjanmerkkinä",
@@ -924,7 +1108,8 @@
   "dialogs": {
     "bookmarks": {
       "delete_confirmation_title": "Poistetaanko kirjanmerkki?",
-      "delete_confirmation_description": "Haluatko varmasti poistaa tämän kirjanmerkin?"
+      "delete_confirmation_description": "Haluatko varmasti poistaa tämän kirjanmerkin?",
+      "bulk_delete_confirmation_description": "Haluatko varmasti poistaa {{count}} kirjanmerkkiä?"
     }
   },
   "toasts": {
@@ -936,6 +1121,7 @@
       "delete_from_list": "Kirjanmerkki on poistettu luettelosta",
       "clipboard_copied": "Linkki on lisätty leikepöydälle!",
       "preserve_pdf": "PDF:nä säilytys on käynnistetty",
+      "preserve_video": "Videon lataus on käynnistetty",
       "update_banner": "Banneri on päivitetty!",
       "uploading_banner": "Ladataan banneria..."
     },
@@ -947,7 +1133,9 @@
     },
     "tags": {
       "created": "Tunnus on nyt luotu!",
-      "failed_to_create": "Tunnuksen luominen epäonnistui"
+      "failed_to_create": "Tunnuksen luominen epäonnistui",
+      "updated": "Tunniste on päivitetty!",
+      "failed_to_update": "Tunnisteen päivitys epäonnistui"
     }
   },
   "banners": {
@@ -988,7 +1176,7 @@
   "version": {
     "new_release_available": "Uudet julkaisutiedot saatavilla",
     "whats_new_title": "Mitä uutta versiossa v{{version}}",
-    "release_notes_description": "Tässäpä uusimmat päivitykset, jotka on haettu GitHubin julkaisutiedoista.",
+    "release_notes_description": "Tässä ovat uusimmat päivitykset, jotka on haettu GitHubin julkaisutiedoista.",
     "loading_release_notes": "Julkaisutietoja ladataan…",
     "unable_to_load_release_notes": "Julkaisutietojen lataaminen ei onnistu juuri nyt. Yritä myöhemmin uudelleen.",
     "no_release_notes": "Tälle versiolle ei ole julkaistu julkaisutietoja.",
@@ -996,21 +1184,21 @@
     "view_on_github": "Näytä GitHubissa"
   },
   "wrapped": {
-    "title": "Sun {{year}}-kooste",
+    "title": "Sinun {{year}}-koosteesi",
     "subtitle": "Vuosi Karakeepissä",
     "banner": {
-      "title": "Sun 2025 -kooste on valmis!",
-      "description": "Katso sun vuotta kirjanmerkeissä",
+      "title": "Sinun 2025 -koosteesi on valmis!",
+      "description": "Katso vuotesi kirjanmerkeissä",
       "view_now": "Katso nyt"
     },
     "button": "2025 -kooste",
-    "loading": "Ladataan sun koosteesta...",
-    "failed_to_load": "Sun koosteen tilastojen lataus epäonnistui",
+    "loading": "Ladataan koostettasi...",
+    "failed_to_load": "Koosteen tilastojen lataaminen epäonnistui",
     "sections": {
       "total_saves": {
-        "prefix": "Oot tallentanu",
-        "suffix": "juttua tänä vuonna",
-        "suffix_singular": "juttu tänä vuonna"
+        "prefix": "Olet tallentanut",
+        "suffix": "kohdetta tänä vuonna",
+        "suffix_singular": "kohteen tänä vuonna"
       },
       "first_bookmark": {
         "title": "Matkasi alkoi",
@@ -1043,5 +1231,28 @@
     "download": "Lataa",
     "close": "Sulje",
     "generating": "Luodaan..."
+  },
+  "keyboard_shortcuts": {
+    "title": "Pikanäppäimet",
+    "sections": {
+      "navigation": "Navigointi",
+      "actions": "Toiminnot",
+      "selection": "Valinta",
+      "other": "Muut"
+    },
+    "move_left": "Siirrä vasemmalle",
+    "move_down": "Siirrä alas",
+    "move_up": "Siirrä ylös",
+    "move_right": "Siirrä oikealle",
+    "open_bookmark": "Avaa kirjanmerkki",
+    "clear_focus": "Tyhjennä kohdistus / poistu joukkomuokkauksesta",
+    "toggle_favorite": "Lisää/poista suosikki",
+    "toggle_archive": "Arkistoi / palauta arkistosta",
+    "delete_bookmark": "Poista kirjanmerkki",
+    "toggle_selection": "Valitse / poista valinta",
+    "select_all": "Valitse kaikki",
+    "deselect_all": "Poista kaikki valinnat",
+    "show_help": "Näytä pikanäppäimet",
+    "focus_search_alt": "Kohdista hakuun"
   }
 }

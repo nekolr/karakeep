@@ -4,18 +4,28 @@ import * as path from "path";
 import { Readable } from "stream";
 import { pipeline } from "stream/promises";
 import { fileTypeFromBlob, supportedMimeTypes } from "file-type";
+import { bodyLimit } from "hono/body-limit";
 
 import { assets, AssetTypes } from "@karakeep/db/schema";
-import { QuotaService, StorageQuotaError } from "@karakeep/shared-server";
 import {
   newAssetId,
+  QuotaService,
   saveAssetFromFile,
+  StorageQuotaError,
   SUPPORTED_UPLOAD_ASSET_TYPES,
-} from "@karakeep/shared/assetdb";
+} from "@karakeep/shared-server";
 import serverConfig from "@karakeep/shared/config";
 import { AuthedContext } from "@karakeep/trpc";
 
 const MAX_UPLOAD_SIZE_BYTES = serverConfig.maxAssetSizeMb * 1024 * 1024;
+
+// Rejects oversized uploads before the multipart body gets buffered in memory.
+// The extra 1MiB leaves room for the multipart framing and other form fields,
+// the exact file size is still enforced in uploadAsset.
+export const uploadBodyLimit = bodyLimit({
+  maxSize: MAX_UPLOAD_SIZE_BYTES + 1024 * 1024,
+  onError: (c) => c.json({ error: "Asset is too big" }, 413),
+});
 
 // Helper to convert Web Stream to Node Stream (requires Node >= 16.5 / 14.18)
 export function webStreamToNode(
@@ -28,15 +38,11 @@ export function webStreamToNode(
 export function toWebReadableStream(
   nodeStream: NodeJS.ReadableStream,
 ): ReadableStream<Uint8Array> {
-  const reader = nodeStream as unknown as Readable;
-
-  return new ReadableStream({
-    start(controller) {
-      reader.on("data", (chunk) => controller.enqueue(new Uint8Array(chunk)));
-      reader.on("end", () => controller.close());
-      reader.on("error", (err) => controller.error(err));
-    },
-  });
+  // Readable.toWeb propagates backpressure and destroys the source on cancel,
+  // so slow or disconnected clients don't cause the whole asset to be read.
+  return Readable.toWeb(
+    nodeStream as Readable,
+  ) as unknown as ReadableStream<Uint8Array>;
 }
 
 export async function uploadAsset(
@@ -95,7 +101,8 @@ export async function uploadAsset(
   let tempFilePath: string | undefined;
 
   try {
-    tempFilePath = path.join(os.tmpdir(), `karakeep-upload-${Date.now()}`);
+    const assetId = newAssetId();
+    tempFilePath = path.join(os.tmpdir(), `karakeep-upload-${assetId}`);
     await pipeline(
       webStreamToNode(data.stream()),
       fs.createWriteStream(tempFilePath),
@@ -103,7 +110,7 @@ export async function uploadAsset(
     const [assetDb] = await db
       .insert(assets)
       .values({
-        id: newAssetId(),
+        id: assetId,
         // Initially, uploads are uploaded for unknown purpose
         // And without an attached bookmark.
         assetType: AssetTypes.UNKNOWN,

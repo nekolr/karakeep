@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { usePathname } from "next/navigation";
 import {
   ActionButton,
@@ -9,6 +10,8 @@ import {
 import ActionConfirmingDialog from "@/components/ui/action-confirming-dialog";
 import { toast } from "@/components/ui/sonner";
 import useBulkActionsStore from "@/lib/bulkActions";
+import { useBookmarkBulkMutations } from "@/lib/hooks/useBookmarkBulkActions";
+import type { UpdateBookmarkProps } from "@/lib/hooks/useBookmarkBulkActions";
 import { useTranslation } from "@/lib/i18n/client";
 import {
   CheckCheck,
@@ -17,59 +20,27 @@ import {
   Link,
   List,
   ListMinus,
-  Pencil,
   RotateCw,
   Trash2,
   X,
 } from "lucide-react";
 
-import {
-  useDeleteBookmark,
-  useRecrawlBookmark,
-  useUpdateBookmark,
-} from "@karakeep/shared-react/hooks/bookmarks";
-import { useRemoveBookmarkFromList } from "@karakeep/shared-react/hooks/lists";
-import { limitConcurrency } from "@karakeep/shared/concurrency";
-import { BookmarkTypes } from "@karakeep/shared/types/bookmarks";
-
 import BulkManageListsModal from "./bookmarks/BulkManageListsModal";
 import BulkTagModal from "./bookmarks/BulkTagModal";
 import { ArchivedActionIcon, FavouritedActionIcon } from "./bookmarks/icons";
 
-const MAX_CONCURRENT_BULK_ACTIONS = 50;
-
 export default function BulkBookmarksAction() {
   const { t } = useTranslation();
-  const {
-    selectedBookmarks,
-    isBulkEditEnabled,
-    listContext: withinListContext,
-  } = useBulkActionsStore();
-  const setIsBulkEditEnabled = useBulkActionsStore(
-    (state) => state.setIsBulkEditEnabled,
-  );
-  const selectAllBookmarks = useBulkActionsStore((state) => state.selectAll);
-  const unSelectAllBookmarks = useBulkActionsStore(
-    (state) => state.unSelectAll,
-  );
-  const isEverythingSelected = useBulkActionsStore(
-    (state) => state.isEverythingSelected,
-  );
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isRemoveFromListDialogOpen, setIsRemoveFromListDialogOpen] =
     useState(false);
   const [manageListsModal, setManageListsModalOpen] = useState(false);
   const [bulkTagModal, setBulkTagModalOpen] = useState(false);
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(
+    null,
+  );
   const pathname = usePathname();
-  const [currentPathname, setCurrentPathname] = useState("");
-
-  // Reset bulk edit state when the route changes
-  useEffect(() => {
-    if (pathname !== currentPathname) {
-      setCurrentPathname(pathname);
-      setIsBulkEditEnabled(false);
-    }
-  }, [pathname, currentPathname]);
+  const currentPathnameRef = useRef(pathname);
 
   const onError = () => {
     toast({
@@ -78,56 +49,49 @@ export default function BulkBookmarksAction() {
       description: "There was a problem with your request.",
     });
   };
-
-  const deleteBookmarkMutator = useDeleteBookmark({
-    onSuccess: () => {
+  const bulkActionsStore = useBulkActionsStore();
+  const selectedBookmarks = bulkActionsStore.getSelectedBookmarks();
+  const {
+    isBulkEditEnabled,
+    listContext: withinListContext,
+    setIsBulkEditEnabled,
+    selectAll: selectAllBookmarks,
+    unSelectAll: unSelectAllBookmarks,
+    isEverythingSelected,
+  } = bulkActionsStore;
+  const {
+    updateBookmarkMutator,
+    deleteBookmarkMutator,
+    recrawlBookmarkMutator,
+    removeBookmarkFromListMutator,
+    updateSelectedBookmarks,
+    deleteSelectedBookmarks,
+    recrawlSelectedLinkBookmarks,
+    removeSelectedBookmarksFromList,
+    selectedBookmarkLinksText,
+  } = useBookmarkBulkMutations({
+    selectedBookmarks,
+    listContext: withinListContext,
+    onError,
+    onBulkEditDone: () => {
       setIsBulkEditEnabled(false);
     },
-    onError,
   });
 
-  const updateBookmarkMutator = useUpdateBookmark({
-    onSuccess: () => {
+  useEffect(() => {
+    setPortalContainer(document.body);
+  }, []);
+
+  // Reset bulk edit state when the route changes
+  useEffect(() => {
+    if (pathname !== currentPathnameRef.current) {
+      currentPathnameRef.current = pathname;
       setIsBulkEditEnabled(false);
-    },
-    onError,
-  });
-
-  const recrawlBookmarkMutator = useRecrawlBookmark({
-    onSuccess: () => {
-      setIsBulkEditEnabled(false);
-    },
-    onError,
-  });
-
-  const removeBookmarkFromListMutator = useRemoveBookmarkFromList({
-    onSuccess: () => {
-      setIsBulkEditEnabled(false);
-    },
-    onError,
-  });
-
-  interface UpdateBookmarkProps {
-    favourited?: boolean;
-    archived?: boolean;
-  }
+    }
+  }, [pathname, setIsBulkEditEnabled]);
 
   const recrawlBookmarks = async (archiveFullPage: boolean) => {
-    const links = selectedBookmarks.filter(
-      (item) => item.content.type === BookmarkTypes.LINK,
-    );
-    await Promise.all(
-      limitConcurrency(
-        links.map(
-          (item) => () =>
-            recrawlBookmarkMutator.mutateAsync({
-              bookmarkId: item.id,
-              archiveFullPage,
-            }),
-        ),
-        MAX_CONCURRENT_BULK_ACTIONS,
-      ),
-    );
+    const links = await recrawlSelectedLinkBookmarks(archiveFullPage);
     toast({
       description: `${links.length} bookmarks will be ${archiveFullPage ? "re-crawled and archived!" : "refreshed!"}`,
     });
@@ -147,14 +111,7 @@ export default function BulkBookmarksAction() {
       });
       return;
     }
-    const copyString = selectedBookmarks
-      .map((item) => {
-        return item.content.type === BookmarkTypes.LINK && item.content.url;
-      })
-      .filter(Boolean)
-      .join("\n");
-
-    await navigator.clipboard.writeText(copyString);
+    await navigator.clipboard.writeText(selectedBookmarkLinksText());
 
     toast({
       description: `Added ${selectedBookmarks.length} bookmark links into the clipboard!`,
@@ -165,34 +122,15 @@ export default function BulkBookmarksAction() {
     favourited,
     archived,
   }: UpdateBookmarkProps) => {
-    await Promise.all(
-      limitConcurrency(
-        selectedBookmarks.map(
-          (item) => () =>
-            updateBookmarkMutator.mutateAsync({
-              bookmarkId: item.id,
-              favourited,
-              archived,
-            }),
-        ),
-        MAX_CONCURRENT_BULK_ACTIONS,
-      ),
-    );
+    await updateSelectedBookmarks({ favourited, archived });
+    setIsBulkEditEnabled(false);
     toast({
       description: `${selectedBookmarks.length} bookmarks have been updated!`,
     });
   };
 
   const deleteBookmarks = async () => {
-    await Promise.all(
-      limitConcurrency(
-        selectedBookmarks.map(
-          (item) => () =>
-            deleteBookmarkMutator.mutateAsync({ bookmarkId: item.id }),
-        ),
-        MAX_CONCURRENT_BULK_ACTIONS,
-      ),
-    );
+    await deleteSelectedBookmarks();
     toast({
       description: `${selectedBookmarks.length} bookmarks have been deleted!`,
     });
@@ -202,18 +140,7 @@ export default function BulkBookmarksAction() {
   const removeBookmarksFromList = async () => {
     if (!withinListContext) return;
 
-    const results = await Promise.allSettled(
-      limitConcurrency(
-        selectedBookmarks.map(
-          (item) => () =>
-            removeBookmarkFromListMutator.mutateAsync({
-              bookmarkId: item.id,
-              listId: withinListContext.id,
-            }),
-        ),
-        MAX_CONCURRENT_BULK_ACTIONS,
-      ),
-    );
+    const results = await removeSelectedBookmarksFromList();
 
     const successes = results.filter((r) => r.status === "fulfilled").length;
     if (successes > 0) {
@@ -237,14 +164,14 @@ export default function BulkBookmarksAction() {
       name: isClipboardAvailable()
         ? t("actions.copy_link")
         : "Copying is only available over https",
-      icon: <Link size={18} />,
+      icon: <Link size={18} className="size-[18px]" />,
       action: () => copyLinks(),
       isPending: false,
       hidden: !isBulkEditEnabled,
     },
     {
       name: t("actions.remove_from_list"),
-      icon: <ListMinus size={18} />,
+      icon: <ListMinus size={18} className="size-[18px]" />,
       action: () => setIsRemoveFromListDialogOpen(true),
       isPending: removeBookmarkFromListMutator.isPending,
       hidden:
@@ -256,49 +183,61 @@ export default function BulkBookmarksAction() {
     },
     {
       name: t("actions.add_to_list"),
-      icon: <List size={18} />,
+      icon: <List size={18} className="size-[18px]" />,
       action: () => setManageListsModalOpen(true),
       isPending: false,
       hidden: !isBulkEditEnabled,
     },
     {
       name: t("actions.edit_tags"),
-      icon: <Hash size={18} />,
+      icon: <Hash size={18} className="size-[18px]" />,
       action: () => setBulkTagModalOpen(true),
       isPending: false,
       hidden: !isBulkEditEnabled,
     },
     {
       name: alreadyFavourited ? t("actions.unfavorite") : t("actions.favorite"),
-      icon: <FavouritedActionIcon favourited={!!alreadyFavourited} size={18} />,
+      icon: (
+        <FavouritedActionIcon
+          favourited={!!alreadyFavourited}
+          size={18}
+          className="size-[18px]"
+        />
+      ),
       action: () => updateBookmarks({ favourited: !alreadyFavourited }),
       isPending: updateBookmarkMutator.isPending,
       hidden: !isBulkEditEnabled,
     },
     {
       name: alreadyArchived ? t("actions.unarchive") : t("actions.archive"),
-      icon: <ArchivedActionIcon size={18} archived={!!alreadyArchived} />,
+      icon: (
+        <ArchivedActionIcon
+          size={18}
+          className="size-[18px]"
+          archived={!!alreadyArchived}
+        />
+      ),
       action: () => updateBookmarks({ archived: !alreadyArchived }),
       isPending: updateBookmarkMutator.isPending,
       hidden: !isBulkEditEnabled,
     },
     {
       name: t("actions.preserve_offline_archive"),
-      icon: <FileDown size={18} />,
+      icon: <FileDown size={18} className="size-[18px]" />,
       action: () => recrawlBookmarks(true),
       isPending: recrawlBookmarkMutator.isPending,
       hidden: !isBulkEditEnabled,
     },
     {
       name: t("actions.refresh"),
-      icon: <RotateCw size={18} />,
+      icon: <RotateCw size={18} className="size-[18px]" />,
       action: () => recrawlBookmarks(false),
       isPending: recrawlBookmarkMutator.isPending,
       hidden: !isBulkEditEnabled,
     },
     {
       name: t("actions.delete"),
-      icon: <Trash2 size={18} color="red" />,
+      icon: <Trash2 size={18} className="size-[18px]" color="red" />,
       action: () => setIsDeleteDialogOpen(true),
       hidden: !isBulkEditEnabled,
     },
@@ -308,7 +247,8 @@ export default function BulkBookmarksAction() {
         : t("actions.select_all"),
       icon: (
         <p className="flex items-center gap-2">
-          ( <CheckCheck size={18} /> {selectedBookmarks.length} )
+          ( <CheckCheck size={18} className="size-[18px]" />{" "}
+          {selectedBookmarks.length} )
         </p>
       ),
       action: () =>
@@ -318,19 +258,63 @@ export default function BulkBookmarksAction() {
     },
     {
       name: t("actions.close_bulk_edit"),
-      icon: <X size={18} />,
+      icon: <X size={18} className="size-[18px]" />,
       action: () => setIsBulkEditEnabled(false),
       alwaysEnable: true,
       hidden: !isBulkEditEnabled,
     },
-    {
-      name: t("actions.bulk_edit"),
-      icon: <Pencil size={18} />,
-      action: () => setIsBulkEditEnabled(true),
-      alwaysEnable: true,
-      hidden: isBulkEditEnabled,
-    },
   ];
+
+  const renderActions = (mobile: boolean) => (
+    <div className="flex min-w-max items-center">
+      {actionList.map(
+        ({ name, icon, action, isPending, hidden, alwaysEnable }) => {
+          const className = `${hidden ? "hidden" : "block"} ${
+            mobile && alwaysEnable ? "-order-1" : ""
+          }`;
+          const disabled = !selectedBookmarks.length && !alwaysEnable;
+
+          if (mobile) {
+            return (
+              <ActionButton
+                aria-label={name}
+                title={name}
+                className={className}
+                disabled={disabled}
+                loading={!!isPending}
+                variant="ghost"
+                key={name}
+                onClick={action}
+              >
+                {icon}
+              </ActionButton>
+            );
+          }
+
+          return (
+            <ActionButtonWithTooltip
+              className={className}
+              tooltip={name}
+              disabled={disabled}
+              delayDuration={100}
+              loading={!!isPending}
+              variant="ghost"
+              key={name}
+              onClick={action}
+            >
+              {icon}
+            </ActionButtonWithTooltip>
+          );
+        },
+      )}
+    </div>
+  );
+
+  const isModalOpen =
+    isDeleteDialogOpen ||
+    isRemoveFromListDialogOpen ||
+    manageListsModal ||
+    bulkTagModal;
 
   return (
     <div>
@@ -381,24 +365,21 @@ export default function BulkBookmarksAction() {
         open={bulkTagModal}
         setOpen={setBulkTagModalOpen}
       />
-      <div className="flex items-center">
-        {actionList.map(
-          ({ name, icon: Icon, action, isPending, hidden, alwaysEnable }) => (
-            <ActionButtonWithTooltip
-              className={hidden ? "hidden" : "block"}
-              tooltip={name}
-              disabled={!selectedBookmarks.length && !alwaysEnable}
-              delayDuration={100}
-              loading={!!isPending}
-              variant="ghost"
-              key={name}
-              onClick={action}
-            >
-              {Icon}
-            </ActionButtonWithTooltip>
-          ),
-        )}
-      </div>
+      {portalContainer && isBulkEditEnabled && !isModalOpen
+        ? createPortal(
+            <div className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-[70] sm:bottom-6 sm:left-1/2 sm:right-auto sm:w-max sm:max-w-[calc(100vw-2rem)] sm:-translate-x-1/2">
+              <div
+                aria-label={t("actions.bulk_edit")}
+                className="overflow-x-auto rounded-2xl border bg-background/95 p-1 shadow-2xl ring-1 ring-black/5 backdrop-blur-sm duration-200 animate-in fade-in slide-in-from-bottom-2 motion-reduce:animate-none dark:ring-white/10"
+                role="toolbar"
+              >
+                <div className="sm:hidden">{renderActions(true)}</div>
+                <div className="hidden sm:block">{renderActions(false)}</div>
+              </div>
+            </div>,
+            portalContainer,
+          )
+        : null}
     </div>
   );
 }

@@ -1,4 +1,3 @@
-import { randomBytes } from "crypto";
 import { TRPCError } from "@trpc/server";
 import { and, count, desc, eq, gte, lte, sql } from "drizzle-orm";
 import invariant from "tiny-invariant";
@@ -6,6 +5,7 @@ import { z } from "zod";
 
 import { SqliteError } from "@karakeep/db";
 import {
+  accounts,
   assets,
   AssetTypes,
   bookmarkLinks,
@@ -13,26 +13,28 @@ import {
   bookmarks,
   bookmarkTags,
   highlights,
-  passwordResetTokens,
+  subscriptions,
   tagsOnBookmarks,
   users,
-  verificationTokens,
 } from "@karakeep/db/schema";
-import { deleteAsset, deleteUserAssets } from "@karakeep/shared/assetdb";
+import { deleteAsset, deleteUserAssets } from "@karakeep/shared-server";
 import serverConfig from "@karakeep/shared/config";
 import {
-  zResetPasswordSchema,
-  zSignUpSchema,
   zUpdateUserSettingsSchema,
   zUserSettingsSchema,
+  zUserBookmarkCountsResponseSchema,
   zUserStatsResponseSchema,
   zWhoAmIResponseSchema,
   zWrappedStatsResponseSchema,
 } from "@karakeep/shared/types/users";
 
 import { AuthedContext, Context } from "..";
-import { generatePasswordSalt, hashPassword, validatePassword } from "../auth";
-import { sendPasswordResetEmail, sendVerificationEmail } from "../email";
+import {
+  CREDENTIAL_PROVIDER_ID,
+  hasPassword,
+  hashPassword,
+  verifyUserPassword,
+} from "../auth";
 
 export class User {
   constructor(
@@ -59,88 +61,79 @@ export class User {
     return this.fromId_DANGEROUS(ctx, ctx.user.id);
   }
 
-  static async create(
-    ctx: Context,
-    input: z.infer<typeof zSignUpSchema> & { redirectUrl?: string },
-    role?: "user" | "admin",
-  ) {
-    const salt = generatePasswordSalt();
-    const user = await User.createRaw(ctx.db, {
-      name: input.name,
-      email: input.email,
-      password: await hashPassword(input.password, salt),
-      salt,
-      role,
-    });
-
-    if (serverConfig.auth.emailVerificationRequired) {
-      const token = await User.genEmailVerificationToken(ctx.db, input.email);
-      try {
-        await sendVerificationEmail(
-          input.email,
-          input.name,
-          token,
-          input.redirectUrl,
-        );
-      } catch (error) {
-        console.error("Failed to send verification email:", error);
-      }
-    }
-
-    return user;
-  }
-
   static async createRaw(
     db: Context["db"],
     input: {
       name: string;
       email: string;
       password?: string;
-      salt?: string;
       role?: "user" | "admin";
-      emailVerified?: Date | null;
+      emailVerified?: boolean;
     },
   ) {
-    return await db.transaction(async (trx) => {
-      let userRole = input.role;
-      if (!userRole) {
-        const [{ count: userCount }] = await trx
-          .select({ count: count() })
-          .from(users);
-        userRole = userCount === 0 ? "admin" : "user";
-      }
-
-      try {
-        const [result] = await trx
-          .insert(users)
-          .values({
-            name: input.name,
-            email: input.email,
-            password: input.password,
-            salt: input.salt,
-            role: userRole,
-            emailVerified: input.emailVerified,
-            bookmarkQuota: serverConfig.quotas.free.bookmarkLimit,
-            storageQuota: serverConfig.quotas.free.assetSizeBytes,
-          })
-          .returning();
-
-        return result;
-      } catch (e) {
-        if (e instanceof SqliteError) {
-          if (e.code === "SQLITE_CONSTRAINT_UNIQUE") {
-            throw new TRPCError({
-              code: "BAD_REQUEST",
-              message: "Email is already taken",
-            });
-          }
+    // Hashing is async, so it has to happen before the synchronous transaction.
+    const passwordHash = input.password
+      ? await hashPassword(input.password)
+      : undefined;
+    // This transaction reads before writing, so reserve the writer slot before
+    // taking a WAL snapshot that another connection could invalidate.
+    return await db.transaction(
+      (trx) => {
+        let userRole = input.role;
+        if (!userRole) {
+          const [{ count: userCount }] = trx
+            .select({ count: count() })
+            .from(users)
+            .all();
+          userRole = userCount === 0 ? "admin" : "user";
         }
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Something went wrong",
-        });
-      }
-    });
+
+        try {
+          const [result] = trx
+            .insert(users)
+            .values({
+              name: input.name,
+              // Emails are stored lowercased, which is what better-auth expects
+              // when looking users up by email.
+              email: input.email.toLowerCase(),
+              role: userRole,
+              emailVerified: input.emailVerified ?? false,
+              bookmarkQuota: serverConfig.quotas.free.bookmarkLimit,
+              storageQuota: serverConfig.quotas.free.assetSizeBytes,
+            })
+            .returning()
+            .all();
+
+          if (passwordHash) {
+            trx
+              .insert(accounts)
+              .values({
+                userId: result.id,
+                accountId: result.id,
+                providerId: CREDENTIAL_PROVIDER_ID,
+                password: passwordHash,
+              })
+              .run();
+          }
+
+          return result;
+        } catch (e) {
+          if (e instanceof SqliteError) {
+            if (e.code === "SQLITE_CONSTRAINT_UNIQUE") {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: "Email is already taken",
+              });
+            }
+          }
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Something went wrong",
+          });
+        }
+      },
+      { behavior: "immediate" },
+    );
   }
 
   static async getAll(ctx: AuthedContext): Promise<User[]> {
@@ -149,220 +142,35 @@ export class User {
     return dbUsers.map((u) => new User(ctx, u));
   }
 
-  static async genEmailVerificationToken(
+  private static async assertNoActiveStripeSubscriptionForUser(
     db: Context["db"],
-    email: string,
-  ): Promise<string> {
-    const token = randomBytes(10).toString("hex");
-    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
-
-    await db.insert(verificationTokens).values({
-      identifier: email,
-      token,
-      expires,
-    });
-
-    return token;
-  }
-
-  static async verifyEmailToken(
-    db: Context["db"],
-    email: string,
-    token: string,
-  ): Promise<boolean> {
-    const verificationToken = await db.query.verificationTokens.findFirst({
-      where: (vt, { and, eq }) =>
-        and(eq(vt.identifier, email), eq(vt.token, token)),
-    });
-
-    if (!verificationToken) {
-      return false;
-    }
-
-    if (verificationToken.expires < new Date()) {
-      await db
-        .delete(verificationTokens)
-        .where(
-          and(
-            eq(verificationTokens.identifier, email),
-            eq(verificationTokens.token, token),
-          ),
-        );
-      return false;
-    }
-
-    await db
-      .delete(verificationTokens)
-      .where(
-        and(
-          eq(verificationTokens.identifier, email),
-          eq(verificationTokens.token, token),
-        ),
-      );
-
-    return true;
-  }
-
-  static async verifyEmail(
-    ctx: Context,
-    email: string,
-    token: string,
-  ): Promise<void> {
-    const isValid = await User.verifyEmailToken(ctx.db, email, token);
-    if (!isValid) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "Invalid or expired verification token",
-      });
-    }
-
-    const result = await ctx.db
-      .update(users)
-      .set({ emailVerified: new Date() })
-      .where(eq(users.email, email));
-
-    if (result.changes === 0) {
-      throw new TRPCError({
-        code: "NOT_FOUND",
-        message: "User not found",
-      });
-    }
-  }
-
-  static async resendVerificationEmail(
-    ctx: Context,
-    email: string,
-    redirectUrl?: string,
-  ): Promise<void> {
-    if (
-      !serverConfig.auth.emailVerificationRequired ||
-      !serverConfig.email.smtp
-    ) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "Email verification is not enabled",
-      });
-    }
-
-    const user = await ctx.db.query.users.findFirst({
-      where: eq(users.email, email),
-    });
-
-    if (!user) {
-      return; // Don't reveal if user exists or not for security
-    }
-
-    if (user.emailVerified) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "Email is already verified",
-      });
-    }
-
-    const token = await User.genEmailVerificationToken(ctx.db, email);
-    try {
-      await sendVerificationEmail(email, user.name, token, redirectUrl);
-    } catch (error) {
-      console.error("Failed to send verification email:", error);
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Failed to send verification email",
-      });
-    }
-  }
-
-  static async forgotPassword(ctx: Context, email: string): Promise<void> {
-    if (!serverConfig.email.smtp) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "Email service is not configured",
-      });
-    }
-
-    const user = await ctx.db.query.users.findFirst({
-      where: eq(users.email, email),
-    });
-
-    if (!user || !user.password) {
-      return; // Don't reveal if user exists or not for security
-    }
-
-    try {
-      const token = randomBytes(32).toString("hex");
-      const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
-
-      await ctx.db.insert(passwordResetTokens).values({
-        userId: user.id,
-        token,
-        expires,
-      });
-
-      await sendPasswordResetEmail(email, user.name, token);
-    } catch (error) {
-      console.error("Failed to send password reset email:", error);
-      throw new TRPCError({
-        code: "INTERNAL_SERVER_ERROR",
-        message: "Failed to send password reset email",
-      });
-    }
-  }
-
-  static async resetPassword(
-    ctx: Context,
-    input: z.infer<typeof zResetPasswordSchema>,
-  ): Promise<void> {
-    const resetToken = await ctx.db.query.passwordResetTokens.findFirst({
-      where: eq(passwordResetTokens.token, input.token),
-      with: {
-        user: {
-          columns: {
-            id: true,
-          },
-        },
+    userId: string,
+  ) {
+    const subscription = await db.query.subscriptions.findFirst({
+      where: eq(subscriptions.userId, userId),
+      columns: {
+        status: true,
       },
     });
 
-    if (!resetToken) {
+    // past_due subscriptions are still being retried by Stripe, so they can
+    // charge the user just like active ones.
+    if (
+      subscription?.status === "active" ||
+      subscription?.status === "trialing" ||
+      subscription?.status === "past_due"
+    ) {
       throw new TRPCError({
         code: "BAD_REQUEST",
-        message: "Invalid or expired reset token",
+        message:
+          "Can't delete user while subscription is active. Please cancel your subscription first and try again.",
       });
     }
-
-    if (resetToken.expires < new Date()) {
-      await ctx.db
-        .delete(passwordResetTokens)
-        .where(eq(passwordResetTokens.token, input.token));
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "Invalid or expired reset token",
-      });
-    }
-
-    if (!resetToken.user) {
-      throw new TRPCError({
-        code: "NOT_FOUND",
-        message: "User not found",
-      });
-    }
-
-    const newSalt = generatePasswordSalt();
-    const hashedPassword = await hashPassword(input.newPassword, newSalt);
-
-    await ctx.db
-      .update(users)
-      .set({
-        password: hashedPassword,
-        salt: newSalt,
-      })
-      .where(eq(users.id, resetToken.user.id));
-
-    await ctx.db
-      .delete(passwordResetTokens)
-      .where(eq(passwordResetTokens.token, input.token));
   }
 
   private static async deleteInternal(db: Context["db"], userId: string) {
+    await User.assertNoActiveStripeSubscriptionForUser(db, userId);
+
     const res = await db.delete(users).where(eq(users.id, userId));
 
     if (res.changes === 0) {
@@ -383,7 +191,7 @@ export class User {
   async deleteAccount(password?: string): Promise<void> {
     invariant(this.ctx.user.email, "A user always has an email specified");
 
-    if (this.user.password) {
+    if (await this.isLocalUser()) {
       if (!password) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -391,9 +199,7 @@ export class User {
         });
       }
 
-      try {
-        await validatePassword(this.ctx.user.email, password, this.ctx.db);
-      } catch {
+      if (!(await verifyUserPassword(this.ctx.db, this.user.id, password))) {
         throw new TRPCError({
           code: "UNAUTHORIZED",
           message: "Invalid password",
@@ -402,33 +208,6 @@ export class User {
     }
 
     await User.deleteInternal(this.ctx.db, this.user.id);
-  }
-
-  async changePassword(
-    currentPassword: string,
-    newPassword: string,
-  ): Promise<void> {
-    invariant(this.ctx.user.email, "A user always has an email specified");
-
-    try {
-      const user = await validatePassword(
-        this.ctx.user.email,
-        currentPassword,
-        this.ctx.db,
-      );
-      invariant(user.id === this.ctx.user.id);
-    } catch {
-      throw new TRPCError({ code: "UNAUTHORIZED" });
-    }
-
-    const newSalt = generatePasswordSalt();
-    await this.ctx.db
-      .update(users)
-      .set({
-        password: await hashPassword(newPassword, newSalt),
-        salt: newSalt,
-      })
-      .where(eq(users.id, this.user.id));
   }
 
   async getSettings(): Promise<z.infer<typeof zUserSettingsSchema>> {
@@ -579,31 +358,48 @@ export class User {
       return;
     }
 
-    await this.ctx.db.transaction(async (tx) => {
-      await tx
-        .update(users)
+    await this.ctx.db.transaction((tx) => {
+      tx.update(users)
         .set({ image: assetId })
-        .where(eq(users.id, this.user.id));
+        .where(eq(users.id, this.user.id))
+        .run();
 
       if (!previousImage || previousImage === assetId) {
         return;
       }
 
       if (previousAsset && !previousAsset.bookmarkId) {
-        await tx.delete(assets).where(eq(assets.id, previousAsset.id));
+        tx.delete(assets).where(eq(assets.id, previousAsset.id)).run();
       }
     });
 
     this.user.image = assetId;
 
-    if (!previousImage || previousImage === assetId) {
+    // Only delete files backed by an asset row this user owns. `users.image`
+    // can hold arbitrary strings (e.g. OAuth picture URLs), so it must never be
+    // used as a storage key on its own.
+    if (!previousAsset || previousAsset.bookmarkId) {
       return;
     }
 
     await deleteAsset({
       userId: this.user.id,
-      assetId: previousImage,
+      assetId: previousAsset.id,
     }).catch(() => ({}));
+  }
+
+  async getBookmarkCounts(): Promise<
+    z.infer<typeof zUserBookmarkCountsResponseSchema>
+  > {
+    const [res] = await this.ctx.db
+      .select({
+        numBookmarks: count(),
+        numFavorites: sql<number>`COALESCE(SUM(CASE WHEN ${bookmarks.favourited} THEN 1 ELSE 0 END), 0)`,
+        numArchived: sql<number>`COALESCE(SUM(CASE WHEN ${bookmarks.archived} THEN 1 ELSE 0 END), 0)`,
+      })
+      .from(bookmarks)
+      .where(eq(bookmarks.userId, this.user.id));
+    return res;
   }
 
   async getStats(): Promise<z.infer<typeof zUserStatsResponseSchema>> {
@@ -1192,21 +988,18 @@ export class User {
     };
   }
 
-  asWhoAmI(): z.infer<typeof zWhoAmIResponseSchema> {
+  // A local user is one that can sign in with a password.
+  async isLocalUser(): Promise<boolean> {
+    return await hasPassword(this.ctx.db, this.user.id);
+  }
+
+  async asWhoAmI(): Promise<z.infer<typeof zWhoAmIResponseSchema>> {
     return {
       id: this.user.id,
       name: this.user.name,
       email: this.user.email,
       image: this.user.image,
-      localUser: this.user.password !== null,
-    };
-  }
-
-  asPublicUser() {
-    const { password, salt: _salt, ...rest } = this.user;
-    return {
-      ...rest,
-      localUser: password !== null,
+      localUser: await this.isLocalUser(),
     };
   }
 }

@@ -4,22 +4,24 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { invites, users } from "@karakeep/db/schema";
+import { zUserNameSchema } from "@karakeep/shared/types/users";
 
-import { generatePasswordSalt, hashPassword } from "../auth";
 import { sendInviteEmail } from "../email";
 import {
-  adminProcedure,
+  createAdminScopedProcedure,
   createRateLimitMiddleware,
   publicProcedure,
   router,
 } from "../index";
 import { User } from "../models/users";
 
+const adminUsersProcedure = createAdminScopedProcedure("users");
+
 export const invitesAppRouter = router({
-  create: adminProcedure
+  create: adminUsersProcedure
     .input(
       z.object({
-        email: z.string().email(),
+        email: z.string().trim().toLowerCase().email(),
       }),
     )
     .mutation(async ({ input, ctx }) => {
@@ -74,7 +76,7 @@ export const invitesAppRouter = router({
       };
     }),
 
-  list: adminProcedure
+  list: adminUsersProcedure
     .output(
       z.object({
         invites: z.array(
@@ -158,7 +160,7 @@ export const invitesAppRouter = router({
     .input(
       z.object({
         token: z.string(),
-        name: z.string().min(1),
+        name: zUserNameSchema,
         password: z.string().min(8),
       }),
     )
@@ -175,7 +177,7 @@ export const invitesAppRouter = router({
       }
 
       const existingUser = await ctx.db.query.users.findFirst({
-        where: eq(users.email, invite.email),
+        where: eq(users.email, invite.email.toLowerCase()),
       });
 
       if (existingUser) {
@@ -185,14 +187,12 @@ export const invitesAppRouter = router({
         });
       }
 
-      const salt = generatePasswordSalt();
       const user = await User.createRaw(ctx.db, {
         name: input.name,
         email: invite.email,
-        password: await hashPassword(input.password, salt),
-        salt,
+        password: input.password,
         role: "user",
-        emailVerified: new Date(), // Auto-verify invited users
+        emailVerified: true, // Auto-verify invited users
       });
 
       // Delete the invite after successful user creation
@@ -205,7 +205,7 @@ export const invitesAppRouter = router({
       };
     }),
 
-  revoke: adminProcedure
+  revoke: adminUsersProcedure
     .input(
       z.object({
         inviteId: z.string(),
@@ -229,7 +229,7 @@ export const invitesAppRouter = router({
       return { success: true };
     }),
 
-  resend: adminProcedure
+  resend: adminUsersProcedure
     .input(
       z.object({
         inviteId: z.string(),

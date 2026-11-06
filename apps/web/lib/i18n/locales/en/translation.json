@@ -77,10 +77,12 @@
     "preserve_offline_archive": "Preserve Offline Archive",
     "download_full_page_archive_file": "Download Archive File",
     "preserve_as_pdf": "Preserve as PDF",
+    "preserve_video": "Preserve Video",
     "download_pdf_file": "Download PDF File",
     "edit_tags": "Edit Tags",
     "edit_notes": "Edit Notes",
     "add_to_list": "Add to List",
+    "select": "Select",
     "select_all": "Select All",
     "unselect_all": "Unselect All",
     "copy_link": "Copy Link",
@@ -92,6 +94,7 @@
     "add": "Add",
     "remove": "Remove",
     "edit": "Edit",
+    "rename": "Rename",
     "confirm": "Confirm",
     "open_editor": "Open Editor",
     "create": "Create",
@@ -233,7 +236,8 @@
       },
       "activity_patterns": {
         "activity_by_hour": "Activity by Hour",
-        "activity_by_day": "Activity by Day"
+        "activity_by_day": "Activity by Day",
+        "busiest_around": "Busiest around {{hour}}"
       },
       "storage_breakdown": {
         "title": "Storage Breakdown"
@@ -311,6 +315,8 @@
       "import_bookmarks_from_tab_session_manager_export": "Import Bookmarks from Tab Session Manager",
       "import_bookmarks_from_mymind_export": "Import Bookmarks from mymind export",
       "import_bookmarks_from_instapaper_export": "Import Bookmarks from Instapaper export",
+      "import_bookmarks_from_readwise_reader_export": "Import Bookmarks from Readwise Reader export",
+      "import_bookmarks_from_onetab_export": "Import Bookmarks from OneTab export",
       "export_links_and_notes": "Export Links and Notes",
       "imported_bookmarks": "Imported Bookmarks"
     },
@@ -324,13 +330,149 @@
       "key_regenerated": "Key was successfully regenerated",
       "key_regenerated_please_copy": "Please copy the new key and store it somewhere safe. The old key has been revoked and will no longer work.",
       "regenerate_warning": "Are you sure you want to regenerate the API key \"{{name}}\"?",
-      "regenerate_confirmation": "This will revoke the current key and generate a new one. Any applications using the current key will stop working."
+      "regenerate_confirmation": "This will revoke the current key and generate a new one. Any applications using the current key will stop working.",
+      "scopes": {
+        "scopes": "Scopes",
+        "choose_at_least_one": "Choose at least one scope or select full access.",
+        "scope_details": "{{scope}} scope details",
+        "access": {
+          "none": "None",
+          "read": "Read",
+          "readwrite": "Read/write"
+        },
+        "full_access": {
+          "label": "Full access",
+          "description": "Access all supported API operations."
+        },
+        "limited_scopes": {
+          "label": "Limited scopes",
+          "description": "Choose the resource types this key can access."
+        },
+        "resources": {
+          "assets": {
+            "label": "Assets",
+            "description": "Access files and other stored bookmark content."
+          },
+          "backups": {
+            "label": "Backups",
+            "description": "Manage account backups."
+          },
+          "bookmarks": {
+            "label": "Bookmarks",
+            "description": "Access and manage bookmarks."
+          },
+          "feeds": {
+            "label": "Feeds",
+            "description": "Manage RSS feeds and related feed data."
+          },
+          "highlights": {
+            "label": "Highlights",
+            "description": "Manage saved bookmark highlights."
+          },
+          "lists": {
+            "label": "Lists",
+            "description": "Manage lists and list membership."
+          },
+          "prompts": {
+            "label": "Prompts",
+            "description": "Manage saved AI prompt configuration."
+          },
+          "rules": {
+            "label": "Rules",
+            "description": "Access automation rules."
+          },
+          "tags": {
+            "label": "Tags",
+            "description": "Access and modify tags."
+          },
+          "users": {
+            "label": "User account",
+            "description": "Access account profile and settings."
+          },
+          "webhooks": {
+            "label": "Webhooks",
+            "description": "Access webhook configuration."
+          },
+          "subscriptions": {
+            "label": "Subscriptions",
+            "description": "Access subscription management."
+          },
+          "importSessions": {
+            "label": "Import Sessions",
+            "description": "Access import sessions."
+          }
+        },
+        "admin_resources": {
+          "bookmarks": {
+            "label": "Admin: bookmarks",
+            "description": "Access administrative bookmark tools."
+          },
+          "jobs": {
+            "label": "Admin: jobs",
+            "description": "Access background job controls."
+          },
+          "subscriptions": {
+            "label": "Admin: subscriptions",
+            "description": "Manage user subscription tiers."
+          },
+          "system": {
+            "label": "Admin: system",
+            "description": "Access system status and diagnostics."
+          },
+          "users": {
+            "label": "Admin: users",
+            "description": "Access administrative user management."
+          }
+        }
+      }
     },
     "broken_links": {
       "broken_links": "Broken Links",
       "last_crawled_at": "Last Crawled At",
       "crawling_status": "Crawling Status",
-      "crawling_failed": "Crawling Failed"
+      "crawling_failed": "Crawling Failed",
+      "description": "Review links that could not be fetched, retry them or remove old bookmarks.",
+      "category_all": "Needs attention",
+      "category_blocked": "Access blocked",
+      "category_missing": "Not found",
+      "category_errors": "Other errors",
+      "category_all_hint": "Links to review",
+      "category_blocked_hint": "Restricted or rate limited",
+      "category_missing_hint": "Page missing or removed",
+      "category_errors_hint": "Server or crawl failures",
+      "blocked_hint": "A blocked request doesn't always mean a broken link. Some sites restrict automated access. Open the original page to check before deleting.",
+      "search": "Search by title or URL…",
+      "sort_recent": "Recently checked",
+      "sort_oldest": "Oldest check first",
+      "sort_domain": "Website A–Z",
+      "result_count_one": "{{count}} link to review",
+      "result_count_other": "{{count}} links to review",
+      "retry_selected": "Retry selected",
+      "empty": "No broken links found",
+      "empty_description": "None of your saved links currently have a reported crawl error.",
+      "select_visible": "Select all visible links",
+      "bookmark": "Bookmark",
+      "issue": "Issue",
+      "never_crawled": "No crawl date",
+      "issue_blocked": "Access blocked",
+      "issue_missing": "Not found",
+      "issue_server": "Server error",
+      "issue_http": "HTTP error",
+      "issue_failed": "Crawl failed",
+      "issue_blocked_hint": "The site restricted this request",
+      "issue_missing_hint": "The page may have been removed",
+      "issue_server_hint": "The site could not complete the request",
+      "issue_http_hint": "The site returned an unexpected response",
+      "issue_failed_hint": "No successful response was recorded",
+      "queued": "Queued",
+      "queued_count_one": "{{count}} link queued for another crawl.",
+      "queued_count_other": "{{count}} links queued for another crawl.",
+      "deleted_count_one": "{{count}} bookmark deleted.",
+      "deleted_count_other": "{{count}} bookmarks deleted.",
+      "action_failed": "{{count}} of {{total}} failed.",
+      "delete_title_one": "Delete {{count}} bookmark?",
+      "delete_title_other": "Delete {{count}} bookmarks?",
+      "delete_description": "This permanently deletes the selected bookmarks and their saved files, highlights and notes. This cannot be undone."
     },
     "manage_assets": {
       "manage_assets": "Manage Assets",
@@ -402,6 +544,15 @@
       "unlock_bigger_quota": "Unlock bigger quota and support the project",
       "subscribe_now": "Subscribe Now",
       "manage_billing": "Manage Billing",
+      "update_payment_method": "Update Payment Method",
+      "payment_failed": "Payment failed",
+      "payment_failed_title": "Your last payment failed",
+      "payment_failed_description": "We couldn't charge your payment method. Update it to keep your Paid plan. We'll retry the charge in the meantime, and your plan will switch to Free if all retries fail.",
+      "payment_failed_description_in_app": "We couldn't charge your payment method. Update it in your App Store or Google Play subscription settings to keep your Paid plan.",
+      "upgrade_from_mobile_app": "To upgrade to the Paid plan, use the Karakeep mobile app.",
+      "managed_by_app_store": "Your subscription was purchased through the App Store. You can manage it from your Apple account's subscription settings.",
+      "managed_by_play_store": "Your subscription was purchased through Google Play. You can manage it from the Google Play Store's subscription settings.",
+      "managed_by_mobile_app": "Your subscription was purchased through the mobile app. You can manage it from your device's subscription settings.",
       "subscription_canceled": "Your subscription has been canceled and will end on {{date}}. You can resubscribe at any time.",
       "usage_quotas": "Usage & Quotas",
       "track_usage": "Track your current usage against your plan limits",
@@ -412,7 +563,17 @@
       "approaching_quota_limit": "Approaching quota limit",
       "loading_usage": "Loading usage information...",
       "free": "Free",
-      "paid": "Paid"
+      "paid": "Paid",
+      "monthly": "Monthly",
+      "yearly": "Yearly",
+      "per_month": "month",
+      "per_year": "year",
+      "excl_vat": "excl. VAT",
+      "yearly_savings": "Save {{percent}}%",
+      "pro_feature_bookmarks": "50,000 bookmarks",
+      "pro_feature_storage": "50GB storage",
+      "pro_feature_ai_tagging": "AI-powered tagging",
+      "pro_feature_full_text_search": "Full-text search"
     },
     "import_sessions": {
       "title": "Import Sessions",
@@ -428,7 +589,8 @@
         "running": "Running",
         "paused": "Paused",
         "completed": "Completed",
-        "failed": "Failed"
+        "failed": "Failed",
+        "archived": "Archived"
       },
       "badges": {
         "pending": "{{count}} pending",
@@ -440,7 +602,10 @@
       "view_list": "View List",
       "delete_dialog_title": "Delete Import Session",
       "delete_dialog_description": "Are you sure you want to delete \"{{name}}\"? This action cannot be undone. The bookmarks themselves will not be deleted.",
+      "finalize_dialog_title": "Finalize Import Session",
+      "finalize_dialog_description": "Queue \"{{name}}\" for background processing? Staged bookmarks will start importing.",
       "delete_session": "Delete Session",
+      "finalize_staging": "Finalize",
       "pause_session": "Pause",
       "resume_session": "Resume",
       "view_details": "View Details",
@@ -463,6 +628,7 @@
         "result_pending": "Pending",
         "result_processing": "Processing",
         "no_results": "No results found for this filter.",
+        "archived_results": "Individual bookmark results are no longer retained for archived import sessions.",
         "view_bookmark": "View Bookmark",
         "load_more": "Load More",
         "no_title": "No title"
@@ -516,6 +682,19 @@
         "backup_queued": "Backup job has been queued! It will be processed shortly.",
         "backup_deleted": "Backup has been deleted!"
       }
+    },
+    "maintenance": {
+      "clear_filters": "Clear filters",
+      "clear_selection": "Clear selection",
+      "delete_selected": "Delete selected",
+      "try_again": "Try again",
+      "sort": "Sort order",
+      "no_matches": "No matches found",
+      "adjust_filters": "Try a different search or clear your filters.",
+      "select_item": "Select {{name}}",
+      "selected": "{{count}} selected",
+      "showing": "Showing {{shown}} of {{total}}",
+      "load_more": "Load more"
     }
   },
   "admin": {
@@ -532,6 +711,7 @@
       "search_engine": "Search Engine",
       "browser": "Browser",
       "queue_system": "Queue System",
+      "vector_store": "Vector Store",
       "status": {
         "not_configured": "Not Configured",
         "connected": "Connected",
@@ -551,6 +731,10 @@
         "indexing": {
           "title": "Indexing Jobs",
           "description": "Search index updates"
+        },
+        "embeddings": {
+          "title": "Embedding Jobs",
+          "description": "Bookmark vector embedding generation"
         },
         "asset_preprocessing": {
           "title": "Asset Preprocessing Jobs",
@@ -604,6 +788,9 @@
         "regenerate_ai_summaries_for_failed_bookmarks_only": "Regenerate AI Summaries for Failed Bookmarks Only",
         "regenerate_ai_summaries_for_all_bookmarks": "Regenerate AI Summaries for All Bookmarks",
         "reindex_all_bookmarks": "Reindex All Bookmarks",
+        "regenerate_embeddings_for_pending_bookmarks_only": "Regenerate Embeddings for Pending Bookmarks Only",
+        "regenerate_embeddings_for_failed_bookmarks_only": "Regenerate Embeddings for Failed Bookmarks Only",
+        "regenerate_embeddings_for_all_bookmarks": "Regenerate Embeddings for All Bookmarks",
         "clean_assets": "Clean Dangling Assets & Re-sync Metadata",
         "migrate_large_link_html_content": "Move Large Inline HTML Content to Assets",
         "reprocess_assets_fix_mode": "Reprocess Unprocessed Assets"
@@ -641,11 +828,13 @@
       "owner_user_id": "Owner User ID",
       "tagging_status": "Tagging Status",
       "summarization_status": "Summarization Status",
+      "embedding_status": "Embedding Status",
       "crawl_status": "Crawl Status",
       "crawl_status_code": "HTTP Status Code",
       "crawled_at": "Crawled At",
       "recrawl": "Re-crawl",
       "reindex": "Re-index",
+      "regenerate_embedding": "Regenerate Embedding",
       "retag": "Re-tag",
       "resummarize": "Re-summarize",
       "bookmark_not_found": "Bookmark not found",
@@ -653,6 +842,7 @@
       "action_failed": "Action failed",
       "recrawl_queued": "Re-crawl job has been queued",
       "reindex_queued": "Re-index job has been queued",
+      "regenerate_embedding_queued": "Embedding regeneration job has been queued",
       "retag_queued": "Re-tag job has been queued",
       "resummarize_queued": "Re-summarize job has been queued",
       "view": "View",
@@ -660,17 +850,25 @@
     }
   },
   "options": {
+    "theme": "Theme",
     "dark_mode": "Dark Mode",
     "light_mode": "Light Mode",
+    "system_mode": "System Mode",
     "apps_extensions": "Apps & Extensions",
     "documentation": "Documentation",
-    "follow_us_on_x": "Follow us on X"
+    "follow_us_on_x": "Follow us on X",
+    "report_a_problem": "Report a Problem"
   },
   "lists": {
     "all_lists": "All Lists",
     "favourites": "Favourites",
     "shared": "Shared",
     "shared_lists": "Shared Lists",
+    "privacy": {
+      "public": "Public",
+      "shared": "Shared",
+      "private": "Private"
+    },
     "new_list": "New List",
     "edit_list": "Edit List",
     "share_list": "Share List",
@@ -750,13 +948,23 @@
       "warning": "You will no longer be able to view or access bookmarks in this list. The list owner can add you back if needed.",
       "action": "Leave List",
       "success": "You have left \"{{icon}} {{name}}\""
-    }
+    },
+    "summary_list_one": "{{count}} list",
+    "summary_list_other": "{{count}} lists",
+    "summary_bookmark_one": "{{count}} bookmark",
+    "summary_bookmark_other": "{{count}} bookmarks",
+    "items_count_one": "{{count}} item",
+    "items_count_other": "{{count}} items"
   },
   "tags": {
     "all_tags": "All Tags",
     "your_tags": "Your Tags",
     "your_tags_info": "Tags that were attached at least once by you",
     "ai_tags": "AI Tags",
+    "rename_tag": "Rename Tag",
+    "items_count": "{{count}} items",
+    "attached_by_you": "{{count}} by you",
+    "attached_by_ai": "{{count}} by AI",
     "ai_tags_info": "Tags that were only attached automatically (by AI)",
     "unused_tags": "Unused Tags",
     "unused_tags_info": "Tags that are not attached to any bookmarks",
@@ -785,6 +993,10 @@
     "is_not_archived": "Is Not Archived",
     "has_any_tag": "Has Any Tag",
     "has_no_tags": "Has No Tag",
+    "has_notes": "Has Notes",
+    "has_no_notes": "Has No Notes",
+    "has_highlights": "Has Highlights",
+    "has_no_highlights": "Has No Highlights",
     "is_in_any_list": "Is In Any List",
     "is_not_in_any_list": "Is not In Any List",
     "created_on_or_after": "Created on or After",
@@ -825,12 +1037,26 @@
     "tags": "Tags",
     "lists": "Lists",
     "feeds": "Feeds",
-    "no_suggestions": "No suggestions"
+    "no_suggestions": "No suggestions",
+    "mode_label": "Search mode",
+    "mode_label_description": "Choose how Karakeep finds matching bookmarks.",
+    "mode_keyword": "Keyword",
+    "mode_keyword_description": "Match exact words in titles, content, URLs, and notes. Almost instant.",
+    "mode_hybrid": "Hybrid",
+    "mode_hybrid_description": "Blend exact matches with related ideas for the best balance. Slower than keyword search.",
+    "mode_semantic": "Semantic",
+    "mode_semantic_description": "Find conceptually similar bookmarks, even without shared words. Slower than keyword search.",
+    "keyword_placeholder": "Search titles, text, URLs, and tags…",
+    "hybrid_placeholder": "Search by words or meaning…",
+    "semantic_placeholder": "Describe what you remember…"
   },
   "preview": {
     "view_original": "View Original",
     "cached_content": "Cached Content",
     "reader_view": "Reader View",
+    "page_overview": "Page Overview",
+    "try_reader_view": "Try Reader View",
+    "archived_page": "Archived Page",
     "archive_info": "Archives may not render correctly inline if they require Javascript. For best results, <1>download it and open in your browser</1>.",
     "fetch_error_title": "Content Unavailable",
     "fetch_error_description": "We couldn't fetch the content for this link. The page may be protected, require authentication, or be temporarily unavailable.",
@@ -904,7 +1130,8 @@
   "dialogs": {
     "bookmarks": {
       "delete_confirmation_title": "Delete Bookmark?",
-      "delete_confirmation_description": "Are you sure you want to delete this bookmark?"
+      "delete_confirmation_description": "Are you sure you want to delete this bookmark?",
+      "bulk_delete_confirmation_description": "Are you sure you want to delete {{count}} bookmarks?"
     }
   },
   "toasts": {
@@ -914,6 +1141,7 @@
       "refetch": "Re-fetch has been enqueued!",
       "full_page_archive": "Full Page Archive creation has been triggered",
       "preserve_pdf": "PDF preservation has been triggered",
+      "preserve_video": "Video download has been triggered",
       "delete_from_list": "The bookmark has been deleted from the list",
       "clipboard_copied": "Link has been added to your clipboard!",
       "update_banner": "Banner has been updated!",
@@ -927,7 +1155,9 @@
     },
     "tags": {
       "created": "Tag has been created!",
-      "failed_to_create": "Failed to create tag"
+      "failed_to_create": "Failed to create tag",
+      "updated": "Tag has been updated!",
+      "failed_to_update": "Failed to update tag"
     }
   },
   "banners": {
@@ -1011,5 +1241,58 @@
     "download": "Download",
     "close": "Close",
     "generating": "Generating..."
+  },
+  "keyboard_shortcuts": {
+    "title": "Keyboard Shortcuts",
+    "sections": {
+      "navigation": "Navigation",
+      "actions": "Actions",
+      "selection": "Selection",
+      "other": "Other"
+    },
+    "move_left": "Move left",
+    "move_down": "Move down",
+    "move_up": "Move up",
+    "move_right": "Move right",
+    "open_bookmark": "Open bookmark",
+    "clear_focus": "Clear focus / exit bulk edit",
+    "toggle_favorite": "Toggle favorite",
+    "toggle_archive": "Archive / Unarchive",
+    "delete_bookmark": "Delete bookmark",
+    "toggle_selection": "Toggle selection",
+    "select_all": "Select all",
+    "deselect_all": "Deselect all",
+    "show_help": "Show keyboard shortcuts",
+    "focus_search_alt": "Focus search"
+  },
+  "problem_report": {
+    "title": "Report a problem",
+    "description": "Tell us what went wrong. Your report will be emailed to the administrator of this Karakeep instance.",
+    "category": "What kind of problem is it?",
+    "categories": {
+      "bug": "Something isn't working",
+      "content": "Bookmark content / crawling issue",
+      "performance": "Slowness or performance",
+      "account": "Account or login",
+      "other": "Other"
+    },
+    "what_happened": "What happened?",
+    "what_happened_placeholder": "Describe what you were doing, what you expected to happen, and what happened instead.",
+    "include_diagnostics": "Include diagnostic information",
+    "include_diagnostics_description": "Helps with investigating. Includes the current page, browser details and recent errors from this tab.",
+    "view_diagnostics_one": "Show what will be sent ({{count}} recent error)",
+    "view_diagnostics_other": "Show what will be sent ({{count}} recent errors)",
+    "submit": "Send report",
+    "error_page_cta": "Report this problem",
+    "success": {
+      "title": "Thanks for your report!",
+      "description": "Your report has been sent to the administrator.",
+      "description_with_email": "Your report has been sent to the administrator. They may follow up with you at {{email}}.",
+      "reference": "Reference: {{id}}"
+    },
+    "toasts": {
+      "failed": "Failed to send the report. Please try again later.",
+      "sent": "Your problem report has been sent."
+    }
   }
 }

@@ -10,17 +10,25 @@ import { FavouritedActionIcon } from "./icons";
 
 export default function BookmarkActionBar({
   bookmark,
+  favouritedClassName,
 }: {
   bookmark: ZBookmark;
+  favouritedClassName?: string;
 }) {
   return (
     <div className="flex text-gray-500">
       {bookmark.favourited && (
-        <FavouritedActionIcon className="m-1 size-8 rounded p-1" favourited />
+        <FavouritedActionIcon
+          className={cn("m-1 size-8 rounded p-1", favouritedClassName)}
+          favourited
+        />
       )}
       <Link
         href={`/dashboard/preview/${bookmark.id}`}
-        className={cn(buttonVariants({ variant: "ghost" }), "px-2")}
+        className={cn(
+          buttonVariants({ variant: "ghost" }),
+          "px-2 has-[>svg]:px-2",
+        )}
       >
         <Maximize2 size={16} />
       </Link>

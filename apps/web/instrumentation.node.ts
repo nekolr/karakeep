@@ -1,3 +1,9 @@
-import { initTracing } from "@karakeep/shared-server";
+import {
+  initEventLogger,
+  initTracing,
+  loadAllPlugins,
+} from "@karakeep/shared-server";
 
-initTracing("web");
+await loadAllPlugins();
+await initTracing("web");
+await initEventLogger("web");

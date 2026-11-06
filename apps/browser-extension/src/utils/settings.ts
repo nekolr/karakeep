@@ -7,22 +7,28 @@ export const DEFAULT_SHOW_COUNT_BADGE = false;
 const zSettingsSchema = z.object({
   apiKey: z.string(),
   apiKeyId: z.string().optional(),
-  address: z.string().optional().default("https://cloud.karakeep.app"),
+  address: z.string().optional().default("https://cloud.karakeep.com"),
   theme: z.enum(["light", "dark", "system"]).optional().default("system"),
   showCountBadge: z.boolean().default(DEFAULT_SHOW_COUNT_BADGE),
   useBadgeCache: z.boolean().default(true),
   badgeCacheExpireMs: z.number().min(0).default(DEFAULT_BADGE_CACHE_EXPIRE_MS),
   customHeaders: z.record(z.string(), z.string()).optional().default({}),
+  useSingleFile: z.boolean().default(false),
+  singleFileIncludeImages: z.boolean().default(true),
+  autoSave: z.boolean().default(true),
 });
 
 const DEFAULT_SETTINGS: Settings = {
   apiKey: "",
-  address: "https://cloud.karakeep.app",
+  address: "https://cloud.karakeep.com",
   theme: "system",
   showCountBadge: DEFAULT_SHOW_COUNT_BADGE,
   useBadgeCache: true,
   badgeCacheExpireMs: DEFAULT_BADGE_CACHE_EXPIRE_MS,
   customHeaders: {},
+  useSingleFile: false,
+  singleFileIncludeImages: true,
+  autoSave: true,
 };
 
 export type Settings = z.infer<typeof zSettingsSchema>;

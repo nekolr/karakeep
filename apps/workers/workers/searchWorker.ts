@@ -1,11 +1,10 @@
 import { eq } from "drizzle-orm";
-import { workerStatsCounter } from "metrics";
-import { withWorkerTracing } from "workerTracing";
 
 import type { ZSearchIndexingRequest } from "@karakeep/shared-server";
 import { db } from "@karakeep/db";
 import { bookmarks } from "@karakeep/db/schema";
 import {
+  addLogFields,
   SearchIndexingQueue,
   zSearchIndexingRequestSchema,
 } from "@karakeep/shared-server";
@@ -19,6 +18,9 @@ import {
 } from "@karakeep/shared/search";
 import { Bookmark } from "@karakeep/trpc/models/bookmarks";
 
+import { workerStatsCounter } from "../metrics";
+import { withWorkerEventLog, withWorkerTracing } from "../workerTracing";
+
 export class SearchIndexingWorker {
   static async build() {
     logger.info("Starting search indexing worker ...");
@@ -26,7 +28,10 @@ export class SearchIndexingWorker {
       (await getQueueClient())!.createRunner<ZSearchIndexingRequest>(
         SearchIndexingQueue,
         {
-          run: withWorkerTracing("searchWorker.run", runSearchIndexing),
+          run: withWorkerTracing(
+            "searchWorker.run",
+            withWorkerEventLog("searchWorker.run", runSearchIndexing),
+          ),
           onComplete: (job) => {
             workerStatsCounter.labels("search", "completed").inc();
             const jobId = job.id;
@@ -76,7 +81,10 @@ async function runIndex(
   });
 
   if (!bookmark) {
-    throw new Error(`Bookmark ${bookmarkId} not found`);
+    logger.warn(
+      `[search] Bookmark ${bookmarkId} not found, it might have been deleted already by the user. Skipping ...`,
+    );
+    return;
   }
 
   const document: BookmarkSearchDocument = {
@@ -111,7 +119,25 @@ async function runIndex(
     tags: bookmark.tagsOnBookmarks.map((t) => t.tag.name),
   };
 
+  addLogFields<"searchWorker.run">({
+    "search.document_size": Buffer.byteLength(JSON.stringify(document), "utf8"),
+  });
+
   await searchClient.addDocuments([document], { batch });
+
+  // The bookmark might have been deleted while we were building the document,
+  // and its delete could have reached the index before our add. If it's gone
+  // now, remove it. Otherwise, the delete gets enqueued after our add landed.
+  const stillExists = await db.query.bookmarks.findFirst({
+    where: eq(bookmarks.id, bookmarkId),
+    columns: { id: true },
+  });
+  if (!stillExists) {
+    logger.info(
+      `[search] Bookmark ${bookmarkId} was deleted while indexing, removing it from the index ...`,
+    );
+    await searchClient.deleteDocuments([bookmarkId], { batch });
+  }
 }
 
 async function runDelete(
@@ -141,6 +167,10 @@ async function runSearchIndexing(job: DequeuedJob<ZSearchIndexingRequest>) {
   }
 
   const bookmarkId = request.data.bookmarkId;
+  addLogFields<"searchWorker.run">({
+    "bookmark.id": bookmarkId,
+    "search.op": request.data.type,
+  });
   // Disable batching on retries (runNumber > 0) for improved reliability
   const batch = job.runNumber === 0;
 

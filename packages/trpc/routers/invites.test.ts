@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, test, vi } from "vitest";
 import { invites, users } from "@karakeep/db/schema";
 
 import type { CustomTestContext } from "../testUtils";
-import { defaultBeforeEach, getApiCaller } from "../testUtils";
+import { createTestUser, defaultBeforeEach, getApiCaller } from "../testUtils";
 
 // Mock server config with email settings
 vi.mock("@karakeep/shared/config", async (original) => {
@@ -35,15 +35,11 @@ vi.mock("../email", () => ({
 beforeEach<CustomTestContext>(defaultBeforeEach(false));
 
 describe("Invites Router", () => {
-  test<CustomTestContext>("admin can create invite", async ({
-    db,
-    unauthedAPICaller,
-  }) => {
-    const admin = await unauthedAPICaller.users.create({
+  test<CustomTestContext>("admin can create invite", async ({ db }) => {
+    const admin = await createTestUser(db, {
       name: "Admin User",
       email: "admin@test.com",
       password: "pass1234",
-      confirmPassword: "pass1234",
     });
 
     const adminCaller = getApiCaller(db, admin.id, admin.email, "admin");
@@ -64,22 +60,17 @@ describe("Invites Router", () => {
     expect(dbInvite?.token).toBeDefined();
   });
 
-  test<CustomTestContext>("non-admin cannot create invite", async ({
-    db,
-    unauthedAPICaller,
-  }) => {
-    await unauthedAPICaller.users.create({
+  test<CustomTestContext>("non-admin cannot create invite", async ({ db }) => {
+    await createTestUser(db, {
       name: "Admin User",
       email: "admin@test.com",
       password: "pass1234",
-      confirmPassword: "pass1234",
     });
 
-    const user = await unauthedAPICaller.users.create({
+    const user = await createTestUser(db, {
       name: "Regular User",
       email: "user@test.com",
       password: "pass1234",
-      confirmPassword: "pass1234",
     });
 
     const userCaller = getApiCaller(db, user.id, user.email);
@@ -91,22 +82,17 @@ describe("Invites Router", () => {
     ).rejects.toThrow(/FORBIDDEN/);
   });
 
-  test<CustomTestContext>("cannot invite existing user", async ({
-    db,
-    unauthedAPICaller,
-  }) => {
-    const admin = await unauthedAPICaller.users.create({
+  test<CustomTestContext>("cannot invite existing user", async ({ db }) => {
+    const admin = await createTestUser(db, {
       name: "Admin User",
       email: "admin@test.com",
       password: "pass1234",
-      confirmPassword: "pass1234",
     });
 
-    await unauthedAPICaller.users.create({
+    await createTestUser(db, {
       name: "Existing User",
       email: "existing@test.com",
       password: "pass1234",
-      confirmPassword: "pass1234",
     });
 
     const adminCaller = getApiCaller(db, admin.id, admin.email, "admin");
@@ -120,13 +106,11 @@ describe("Invites Router", () => {
 
   test<CustomTestContext>("cannot create duplicate pending invite", async ({
     db,
-    unauthedAPICaller,
   }) => {
-    const admin = await unauthedAPICaller.users.create({
+    const admin = await createTestUser(db, {
       name: "Admin User",
       email: "admin@test.com",
       password: "pass1234",
-      confirmPassword: "pass1234",
     });
 
     const adminCaller = getApiCaller(db, admin.id, admin.email, "admin");
@@ -142,15 +126,11 @@ describe("Invites Router", () => {
     ).rejects.toThrow(/An active invite for this email already exists/);
   });
 
-  test<CustomTestContext>("admin can list invites", async ({
-    db,
-    unauthedAPICaller,
-  }) => {
-    const admin = await unauthedAPICaller.users.create({
+  test<CustomTestContext>("admin can list invites", async ({ db }) => {
+    const admin = await createTestUser(db, {
       name: "Admin User",
       email: "admin@test.com",
       password: "pass1234",
-      confirmPassword: "pass1234",
     });
 
     const adminCaller = getApiCaller(db, admin.id, admin.email, "admin");
@@ -174,22 +154,17 @@ describe("Invites Router", () => {
     ).toBeTruthy();
   });
 
-  test<CustomTestContext>("non-admin cannot list invites", async ({
-    db,
-    unauthedAPICaller,
-  }) => {
-    await unauthedAPICaller.users.create({
+  test<CustomTestContext>("non-admin cannot list invites", async ({ db }) => {
+    await createTestUser(db, {
       name: "Admin User",
       email: "admin@test.com",
       password: "pass1234",
-      confirmPassword: "pass1234",
     });
 
-    const user = await unauthedAPICaller.users.create({
+    const user = await createTestUser(db, {
       name: "Regular User",
       email: "user@test.com",
       password: "pass1234",
-      confirmPassword: "pass1234",
     });
 
     const userCaller = getApiCaller(db, user.id, user.email);
@@ -201,11 +176,10 @@ describe("Invites Router", () => {
     db,
     unauthedAPICaller,
   }) => {
-    const admin = await unauthedAPICaller.users.create({
+    const admin = await createTestUser(db, {
       name: "Admin User",
       email: "admin@test.com",
       password: "pass1234",
-      confirmPassword: "pass1234",
     });
 
     const adminCaller = getApiCaller(db, admin.id, admin.email, "admin");
@@ -241,11 +215,10 @@ describe("Invites Router", () => {
     db,
     unauthedAPICaller,
   }) => {
-    const admin = await unauthedAPICaller.users.create({
+    const admin = await createTestUser(db, {
       name: "Admin User",
       email: "admin@test.com",
       password: "pass1234",
-      confirmPassword: "pass1234",
     });
 
     const adminCaller = getApiCaller(db, admin.id, admin.email, "admin");
@@ -270,11 +243,10 @@ describe("Invites Router", () => {
     db,
     unauthedAPICaller,
   }) => {
-    const admin = await unauthedAPICaller.users.create({
+    const admin = await createTestUser(db, {
       name: "Admin User",
       email: "admin@test.com",
       password: "pass1234",
-      confirmPassword: "pass1234",
     });
 
     const adminCaller = getApiCaller(db, admin.id, admin.email, "admin");
@@ -306,11 +278,10 @@ describe("Invites Router", () => {
     db,
     unauthedAPICaller,
   }) => {
-    const admin = await unauthedAPICaller.users.create({
+    const admin = await createTestUser(db, {
       name: "Admin User",
       email: "admin@test.com",
       password: "pass1234",
-      confirmPassword: "pass1234",
     });
 
     const adminCaller = getApiCaller(db, admin.id, admin.email, "admin");
@@ -343,11 +314,10 @@ describe("Invites Router", () => {
     db,
     unauthedAPICaller,
   }) => {
-    const admin = await unauthedAPICaller.users.create({
+    const admin = await createTestUser(db, {
       name: "Admin User",
       email: "admin@test.com",
       password: "pass1234",
-      confirmPassword: "pass1234",
     });
 
     const adminCaller = getApiCaller(db, admin.id, admin.email, "admin");
@@ -370,15 +340,43 @@ describe("Invites Router", () => {
     expect(result.name).toBe("New User");
   });
 
+  test<CustomTestContext>("invite accept rejects raw html in name", async ({
+    db,
+    unauthedAPICaller,
+  }) => {
+    const admin = await createTestUser(db, {
+      name: "Admin User",
+      email: "admin@test.com",
+      password: "pass1234",
+    });
+
+    const adminCaller = getApiCaller(db, admin.id, admin.email, "admin");
+
+    const invite = await adminCaller.invites.create({
+      email: "invite-sanitized@test.com",
+    });
+
+    const dbInvite = await db.query.invites.findFirst({
+      where: eq(invites.id, invite.id),
+    });
+
+    await expect(() =>
+      unauthedAPICaller.invites.accept({
+        token: dbInvite!.token,
+        name: "<b>Invited</b> <User>",
+        password: "newpass123",
+      }),
+    ).rejects.toThrow(/Name contains invalid characters/);
+  });
+
   test<CustomTestContext>("cannot accept used invite (deleted)", async ({
     db,
     unauthedAPICaller,
   }) => {
-    const admin = await unauthedAPICaller.users.create({
+    const admin = await createTestUser(db, {
       name: "Admin User",
       email: "admin@test.com",
       password: "pass1234",
-      confirmPassword: "pass1234",
     });
 
     const adminCaller = getApiCaller(db, admin.id, admin.email, "admin");
@@ -408,15 +406,11 @@ describe("Invites Router", () => {
     ).rejects.toThrow(/Invite not found or has been used/);
   });
 
-  test<CustomTestContext>("admin can revoke invite", async ({
-    db,
-    unauthedAPICaller,
-  }) => {
-    const admin = await unauthedAPICaller.users.create({
+  test<CustomTestContext>("admin can revoke invite", async ({ db }) => {
+    const admin = await createTestUser(db, {
       name: "Admin User",
       email: "admin@test.com",
       password: "pass1234",
-      confirmPassword: "pass1234",
     });
 
     const adminCaller = getApiCaller(db, admin.id, admin.email, "admin");
@@ -438,22 +432,17 @@ describe("Invites Router", () => {
     expect(revokedInvite).toBeUndefined();
   });
 
-  test<CustomTestContext>("non-admin cannot revoke invite", async ({
-    db,
-    unauthedAPICaller,
-  }) => {
-    const admin = await unauthedAPICaller.users.create({
+  test<CustomTestContext>("non-admin cannot revoke invite", async ({ db }) => {
+    const admin = await createTestUser(db, {
       name: "Admin User",
       email: "admin@test.com",
       password: "pass1234",
-      confirmPassword: "pass1234",
     });
 
-    const user = await unauthedAPICaller.users.create({
+    const user = await createTestUser(db, {
       name: "Regular User",
       email: "user@test.com",
       password: "pass1234",
-      confirmPassword: "pass1234",
     });
 
     const adminCaller = getApiCaller(db, admin.id, admin.email, "admin");
@@ -470,15 +459,11 @@ describe("Invites Router", () => {
     ).rejects.toThrow(/FORBIDDEN/);
   });
 
-  test<CustomTestContext>("admin can resend invite", async ({
-    db,
-    unauthedAPICaller,
-  }) => {
-    const admin = await unauthedAPICaller.users.create({
+  test<CustomTestContext>("admin can resend invite", async ({ db }) => {
+    const admin = await createTestUser(db, {
       name: "Admin User",
       email: "admin@test.com",
       password: "pass1234",
-      confirmPassword: "pass1234",
     });
 
     const adminCaller = getApiCaller(db, admin.id, admin.email, "admin");
@@ -511,11 +496,10 @@ describe("Invites Router", () => {
     db,
     unauthedAPICaller,
   }) => {
-    const admin = await unauthedAPICaller.users.create({
+    const admin = await createTestUser(db, {
       name: "Admin User",
       email: "admin@test.com",
       password: "pass1234",
-      confirmPassword: "pass1234",
     });
 
     const adminCaller = getApiCaller(db, admin.id, admin.email, "admin");
@@ -544,13 +528,11 @@ describe("Invites Router", () => {
 
   test<CustomTestContext>("invite creation works without expiration", async ({
     db,
-    unauthedAPICaller,
   }) => {
-    const admin = await unauthedAPICaller.users.create({
+    const admin = await createTestUser(db, {
       name: "Admin User",
       email: "admin@test.com",
       password: "pass1234",
-      confirmPassword: "pass1234",
     });
 
     const adminCaller = getApiCaller(db, admin.id, admin.email, "admin");
@@ -565,13 +547,11 @@ describe("Invites Router", () => {
 
   test<CustomTestContext>("invite includes inviter information", async ({
     db,
-    unauthedAPICaller,
   }) => {
-    const admin = await unauthedAPICaller.users.create({
+    const admin = await createTestUser(db, {
       name: "Admin User",
       email: "admin@test.com",
       password: "pass1234",
-      confirmPassword: "pass1234",
     });
 
     const adminCaller = getApiCaller(db, admin.id, admin.email, "admin");
@@ -592,11 +572,10 @@ describe("Invites Router", () => {
     db,
     unauthedAPICaller,
   }) => {
-    const admin = await unauthedAPICaller.users.create({
+    const admin = await createTestUser(db, {
       name: "Admin User",
       email: "admin@test.com",
       password: "pass1234",
-      confirmPassword: "pass1234",
     });
 
     const adminCaller = getApiCaller(db, admin.id, admin.email, "admin");
@@ -623,7 +602,6 @@ describe("Invites Router", () => {
 
   test<CustomTestContext>("email sending is called during invite creation", async ({
     db,
-    unauthedAPICaller,
   }) => {
     // Mock the email module
     const mockSendInviteEmail = vi.fn().mockResolvedValue(undefined);
@@ -631,11 +609,10 @@ describe("Invites Router", () => {
       sendInviteEmail: mockSendInviteEmail,
     }));
 
-    const admin = await unauthedAPICaller.users.create({
+    const admin = await createTestUser(db, {
       name: "Admin User",
       email: "admin@test.com",
       password: "pass1234",
-      confirmPassword: "pass1234",
     });
 
     const adminCaller = getApiCaller(db, admin.id, admin.email, "admin");

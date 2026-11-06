@@ -4,7 +4,12 @@ import { MAX_NUM_BOOKMARKS_PER_PAGE } from "@karakeep/shared/types/bookmarks";
 import { zCursorV2 } from "@karakeep/shared/types/pagination";
 
 export const zPagination = z.object({
-  limit: z.coerce.number().max(MAX_NUM_BOOKMARKS_PER_PAGE).optional(),
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1)
+    .max(MAX_NUM_BOOKMARKS_PER_PAGE)
+    .optional(),
   cursor: z
     .string()
     .refine((val) => val.includes("_"), "Must be a valid cursor")
@@ -12,7 +17,8 @@ export const zPagination = z.object({
       const [id, createdAt] = val.split("_");
       return { id, createdAt };
     })
-    .pipe(z.object({ id: z.string(), createdAt: z.coerce.date() }))
+    .transform(({ id, createdAt }) => ({ id, createdAt: new Date(createdAt) }))
+    .pipe(z.object({ id: z.string(), createdAt: z.date() }))
     .optional(),
 });
 

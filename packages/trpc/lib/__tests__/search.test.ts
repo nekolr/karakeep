@@ -9,6 +9,7 @@ import {
   bookmarksInLists,
   bookmarkTags,
   bookmarkTexts,
+  highlights,
   rssFeedImportsTable,
   rssFeedsTable,
   tagsOnBookmarks,
@@ -34,6 +35,12 @@ beforeEach(async () => {
       email: "test@example.com",
       role: "user",
     },
+    {
+      id: "other-user",
+      name: "Other User",
+      email: "other@example.com",
+      role: "user",
+    },
   ]);
 
   // Setup test data
@@ -46,6 +53,7 @@ beforeEach(async () => {
       favourited: false,
       createdAt: new Date("2024-01-01"),
       title: null,
+      note: "A bookmark note",
     },
     {
       id: "b2",
@@ -53,8 +61,9 @@ beforeEach(async () => {
       userId: testUserId,
       archived: true,
       favourited: true,
-      createdAt: new Date("2024-01-02"),
+      createdAt: new Date("2024-01-02T10:00:00Z"),
       title: "example domain page",
+      note: "",
     },
     {
       id: "b3",
@@ -92,6 +101,16 @@ beforeEach(async () => {
       createdAt: new Date("2024-01-06"),
       title: "example asset",
     },
+    {
+      id: "b7",
+      type: BookmarkTypes.TEXT,
+      userId: "other-user",
+      archived: false,
+      favourited: false,
+      createdAt: new Date("2024-01-07"),
+      title: "another user's bookmark",
+      note: "Another user's note",
+    },
   ]);
 
   await db.insert(bookmarkLinks).values([
@@ -120,6 +139,25 @@ beforeEach(async () => {
       fileName: "test.png",
       assetId: "asset-id",
       sourceUrl: "https://example.com/image.png",
+    },
+  ]);
+
+  await db.insert(highlights).values([
+    {
+      id: "h1",
+      bookmarkId: "b3",
+      userId: testUserId,
+      startOffset: 0,
+      endOffset: 4,
+      text: "This",
+    },
+    {
+      id: "h2",
+      bookmarkId: "b4",
+      userId: "other-user",
+      startOffset: 0,
+      endOffset: 7,
+      text: "Another",
     },
   ]);
 
@@ -295,6 +333,71 @@ describe("getBookmarkIdsFromMatcher", () => {
     expect(result).toEqual([]);
   });
 
+  it("should handle listName matcher referencing a smart list", async () => {
+    await mockCtx.db.insert(bookmarkLists).values({
+      id: "l5",
+      userId: testUserId,
+      name: "pages",
+      icon: "🚀",
+      type: "smart",
+      query: "title:page",
+    });
+
+    const result = await getBookmarkIdsFromMatcher(mockCtx, {
+      type: "listName",
+      listName: "pages",
+      inverse: false,
+    });
+    expect(result.sort()).toEqual(["b2", "b4"]);
+
+    // b1 has a NULL title, which must still be excluded from the smart list
+    // (and hence included in the inverse).
+    const inverseResult = await getBookmarkIdsFromMatcher(mockCtx, {
+      type: "listName",
+      listName: "pages",
+      inverse: true,
+    });
+    expect(inverseResult.sort()).toEqual(["b1", "b3", "b5", "b6"]);
+  });
+
+  it("should handle a smart list that references itself", async () => {
+    await mockCtx.db.insert(bookmarkLists).values({
+      id: "l5",
+      userId: testUserId,
+      name: "loop",
+      icon: "🚀",
+      type: "smart",
+      query: "list:loop or is:fav",
+    });
+
+    const result = await getBookmarkIdsFromMatcher(mockCtx, {
+      type: "listName",
+      listName: "loop",
+      inverse: false,
+    });
+    expect(result.sort()).toEqual(["b2", "b4"]);
+  });
+
+  it("should handle AND/OR matchers beyond SQLite's expression depth limit", async () => {
+    const orResult = await getBookmarkIdsFromMatcher(mockCtx, {
+      type: "or",
+      matchers: Array.from({ length: 2000 }, () => ({
+        type: "favourited" as const,
+        favourited: true,
+      })),
+    });
+    expect(orResult.sort()).toEqual(["b2", "b4"]);
+
+    const andResult = await getBookmarkIdsFromMatcher(mockCtx, {
+      type: "and",
+      matchers: Array.from({ length: 2000 }, () => ({
+        type: "archived" as const,
+        archived: true,
+      })),
+    });
+    expect(andResult.sort()).toEqual(["b2", "b3", "b6"]);
+  });
+
   it("should handle archived matcher", async () => {
     const matcher: Matcher = { type: "archived", archived: true };
     const result = await getBookmarkIdsFromMatcher(mockCtx, matcher);
@@ -319,6 +422,36 @@ describe("getBookmarkIdsFromMatcher", () => {
     expect(result).toEqual(["b1", "b3", "b5", "b6"]);
   });
 
+  it("should handle hasNotes matcher", async () => {
+    const matcher: Matcher = { type: "hasNotes", hasNotes: true };
+    const result = await getBookmarkIdsFromMatcher(mockCtx, matcher);
+    expect(result).toEqual(["b1"]);
+  });
+
+  it("should handle hasNotes matcher with hasNotes=false", async () => {
+    const matcher: Matcher = { type: "hasNotes", hasNotes: false };
+    const result = await getBookmarkIdsFromMatcher(mockCtx, matcher);
+    expect(result.sort()).toEqual(["b2", "b3", "b4", "b5", "b6"]);
+  });
+
+  it("should handle hasHighlights matcher for the current user", async () => {
+    const matcher: Matcher = {
+      type: "hasHighlights",
+      hasHighlights: true,
+    };
+    const result = await getBookmarkIdsFromMatcher(mockCtx, matcher);
+    expect(result).toEqual(["b3"]);
+  });
+
+  it("should handle hasHighlights=false and ignore another user's highlights", async () => {
+    const matcher: Matcher = {
+      type: "hasHighlights",
+      hasHighlights: false,
+    };
+    const result = await getBookmarkIdsFromMatcher(mockCtx, matcher);
+    expect(result.sort()).toEqual(["b1", "b2", "b4", "b5", "b6"]);
+  });
+
   it("should handle url matcher", async () => {
     const matcher: Matcher = {
       type: "url",
@@ -326,7 +459,7 @@ describe("getBookmarkIdsFromMatcher", () => {
       inverse: false,
     };
     const result = await getBookmarkIdsFromMatcher(mockCtx, matcher);
-    expect(result).toEqual(["b1", "b4", "b6"]);
+    expect(result.sort()).toEqual(["b1", "b4", "b6"]);
   });
 
   it("should handle url matcher with inverse=true", async () => {
@@ -392,18 +525,22 @@ describe("getBookmarkIdsFromMatcher", () => {
 
   it("should handle type matcher", async () => {
     expect(
-      await getBookmarkIdsFromMatcher(mockCtx, {
-        type: "type",
-        typeName: BookmarkTypes.LINK,
-        inverse: false,
-      }),
+      (
+        await getBookmarkIdsFromMatcher(mockCtx, {
+          type: "type",
+          typeName: BookmarkTypes.LINK,
+          inverse: false,
+        })
+      ).sort(),
     ).toEqual(["b1", "b2", "b4"]);
     expect(
-      await getBookmarkIdsFromMatcher(mockCtx, {
-        type: "type",
-        typeName: BookmarkTypes.TEXT,
-        inverse: false,
-      }),
+      (
+        await getBookmarkIdsFromMatcher(mockCtx, {
+          type: "type",
+          typeName: BookmarkTypes.TEXT,
+          inverse: false,
+        })
+      ).sort(),
     ).toEqual(["b3", "b5"]);
     expect(
       await getBookmarkIdsFromMatcher(mockCtx, {
@@ -416,25 +553,31 @@ describe("getBookmarkIdsFromMatcher", () => {
 
   it("should handle type matcher with inverse=true", async () => {
     expect(
-      await getBookmarkIdsFromMatcher(mockCtx, {
-        type: "type",
-        typeName: BookmarkTypes.LINK,
-        inverse: true,
-      }),
+      (
+        await getBookmarkIdsFromMatcher(mockCtx, {
+          type: "type",
+          typeName: BookmarkTypes.LINK,
+          inverse: true,
+        })
+      ).sort(),
     ).toEqual(["b3", "b5", "b6"]);
     expect(
-      await getBookmarkIdsFromMatcher(mockCtx, {
-        type: "type",
-        typeName: BookmarkTypes.TEXT,
-        inverse: true,
-      }),
+      (
+        await getBookmarkIdsFromMatcher(mockCtx, {
+          type: "type",
+          typeName: BookmarkTypes.TEXT,
+          inverse: true,
+        })
+      ).sort(),
     ).toEqual(["b1", "b2", "b4", "b6"]);
     expect(
-      await getBookmarkIdsFromMatcher(mockCtx, {
-        type: "type",
-        typeName: BookmarkTypes.ASSET,
-        inverse: true,
-      }),
+      (
+        await getBookmarkIdsFromMatcher(mockCtx, {
+          type: "type",
+          typeName: BookmarkTypes.ASSET,
+          inverse: true,
+        })
+      ).sort(),
     ).toEqual(["b1", "b2", "b3", "b4", "b5"]);
   });
 
@@ -481,7 +624,7 @@ describe("getBookmarkIdsFromMatcher", () => {
       ],
     };
     const result = await getBookmarkIdsFromMatcher(mockCtx, matcher);
-    expect(result).toEqual(["b4", "b5"]);
+    expect(result.sort()).toEqual(["b4", "b5"]);
   });
 
   it("should handle nested complex matchers", async () => {

@@ -3,6 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { ActionButton } from "@/components/ui/action-button";
+import FormattedDate from "@/components/ui/formatted-date";
 import {
   Form,
   FormControl,
@@ -68,7 +69,7 @@ export function FeedsEditorDialog() {
   const [open, setOpen] = React.useState(false);
   const queryClient = useQueryClient();
 
-  const form = useForm<z.infer<typeof zNewFeedSchema>>({
+  const form = useForm({
     resolver: zodResolver(zNewFeedSchema),
     defaultValues: {
       name: "",
@@ -100,7 +101,7 @@ export function FeedsEditorDialog() {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button>
-          <CirclePlus className="mr-2 size-4" />
+          <CirclePlus className="size-4" />
           {t("settings.feeds.add_a_subscription")}
         </Button>
       </DialogTrigger>
@@ -161,7 +162,7 @@ export function FeedsEditorDialog() {
                     </div>
                     <FormControl>
                       <Switch
-                        checked={field.value}
+                        checked={field.value ?? false}
                         onCheckedChange={field.onChange}
                       />
                     </FormControl>
@@ -185,7 +186,7 @@ export function FeedsEditorDialog() {
             variant="default"
             className="items-center"
           >
-            <Plus className="mr-2 size-4" />
+            <Plus className="size-4" />
             Add
           </ActionButton>
         </DialogFooter>
@@ -335,7 +336,7 @@ export function EditFeedDialog({ feed }: { feed: ZFeed }) {
             type="submit"
             className="items-center"
           >
-            <Save className="mr-2 size-4" />
+            <Save className="size-4" />
             {t("actions.save")}
           </ActionButton>
         </DialogFooter>
@@ -409,7 +410,9 @@ export function FeedRow({ feed }: { feed: ZFeed }) {
       >
         {feed.url}
       </TableCell>
-      <TableCell>{feed.lastFetchedAt?.toLocaleString()}</TableCell>
+      <TableCell>
+        <FormattedDate date={feed.lastFetchedAt} />
+      </TableCell>
       <TableCell>
         {feed.lastFetchedStatus === "success" ? (
           <span title="Successful">
@@ -452,7 +455,7 @@ export function FeedRow({ feed }: { feed: ZFeed }) {
               className="items-center"
               type="button"
             >
-              <Trash2 className="mr-2 size-4" />
+              <Trash2 className="size-4" />
               {t("actions.delete")}
             </ActionButton>
           )}

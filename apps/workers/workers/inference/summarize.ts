@@ -1,9 +1,9 @@
 import { and, eq } from "drizzle-orm";
-import { getBookmarkDomain } from "network";
 
 import { db } from "@karakeep/db";
 import { bookmarks, customPrompts, users } from "@karakeep/db/schema";
 import {
+  addLogFields,
   setSpanAttributes,
   triggerSearchReindex,
   ZOpenAIRequest,
@@ -15,6 +15,8 @@ import { buildSummaryPrompt } from "@karakeep/shared/prompts.server";
 import { DequeuedJob } from "@karakeep/shared/queueing";
 import { BookmarkTypes } from "@karakeep/shared/types/bookmarks";
 import { Bookmark } from "@karakeep/trpc/models/bookmarks";
+
+import { getBookmarkDomain } from "../../network";
 
 async function fetchBookmarkDetailsForSummary(bookmarkId: string) {
   const bookmark = await db.query.bookmarks.findFirst({
@@ -74,11 +76,14 @@ export async function runSummarization(
   setSpanAttributes({
     "user.id": bookmarkData.userId,
     "bookmark.id": bookmarkData.id,
+    "inference.type": "summarization",
+  });
+  addLogFields<"inferenceWorker.run">({
+    "user.id": bookmarkData.userId,
     "bookmark.url": bookmarkData.link?.url,
     "bookmark.domain": getBookmarkDomain(bookmarkData.link?.url),
-    "bookmark.content.type": bookmarkData.type,
-    "crawler.statusCode": bookmarkData.link?.crawlStatusCode ?? undefined,
-    "inference.type": "summarization",
+    "bookmark.content_type": bookmarkData.type,
+    "crawler.status_code": bookmarkData.link?.crawlStatusCode ?? undefined,
     "inference.model": serverConfig.inference.textModel,
   });
 
@@ -138,8 +143,8 @@ URL: ${link.url ?? ""}
     },
   });
 
-  setSpanAttributes({
-    "inference.prompt.customCount": prompts.length,
+  addLogFields<"inferenceWorker.run">({
+    "inference.prompt.custom_count": prompts.length,
   });
 
   const summaryPrompt = await buildSummaryPrompt(
@@ -149,7 +154,7 @@ URL: ${link.url ?? ""}
     serverConfig.inference.contextLength,
   );
 
-  setSpanAttributes({
+  addLogFields<"inferenceWorker.run">({
     "inference.prompt.size": Buffer.byteLength(summaryPrompt, "utf8"),
   });
 
@@ -164,9 +169,9 @@ URL: ${link.url ?? ""}
     );
   }
 
-  setSpanAttributes({
+  addLogFields<"inferenceWorker.run">({
     "inference.summary.size": Buffer.byteLength(summaryResult.response, "utf8"),
-    "inference.totalTokens": summaryResult.totalTokens,
+    "inference.total_tokens": summaryResult.totalTokens,
   });
 
   logger.info(

@@ -6,7 +6,23 @@ export const zRoleSchema = z.object({
   role: z.enum(["user", "admin"]),
 });
 
-export const zAdminCreateUserSchema = zSignUpSchema.and(zRoleSchema);
+export const zAdminCreateUserSchema = zSignUpSchema.safeExtend(
+  zRoleSchema.shape,
+);
+
+export const zAdminUserSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string(),
+  role: z.enum(["user", "admin"]).nullable(),
+  bookmarkQuota: z.number().nullable(),
+  storageQuota: z.number().nullable(),
+});
+
+export const zAdminGetUserSchema = z.union([
+  z.object({ id: z.string() }),
+  z.object({ email: z.string().trim().toLowerCase().email() }),
+]);
 
 export const updateUserSchema = z.object({
   userId: z.string(),
@@ -15,6 +31,14 @@ export const updateUserSchema = z.object({
   storageQuota: z.number().int().min(0).nullable().optional(),
   browserCrawlingEnabled: z.boolean().nullable().optional(),
 });
+
+export const zAdminJobModifiedWithinSecondsSchema = z
+  .number()
+  .int()
+  .positive()
+  .describe(
+    "Only process bookmarks modified within this many seconds. Omit to process all matching bookmarks.",
+  );
 
 export const resetPasswordSchema = z
   .object({

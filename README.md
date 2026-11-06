@@ -8,12 +8,9 @@
     <a href="https://discord.gg/NrgeYywsFh">
         <img alt="Discord" src="https://img.shields.io/discord/1223681308962721802?label=chat%20on%20discord" />
     </a>
-    <a href="https://hosted.weblate.org/engage/hoarder/">
-        <img src="https://hosted.weblate.org/widget/hoarder/hoarder/svg-badge.svg" alt="Translation status" />
-    </a>
 </div>
 
-# <img height="50px" src="./screenshots/logo.png" />
+# <picture><source media="(prefers-color-scheme: dark)" srcset="./screenshots/logo-white.png" /><img alt="Karakeep" height="50px" src="./screenshots/logo.png" /></picture>
 
 Karakeep (previously Hoarder) is a self-hostable bookmark-everything app with a touch of AI for the data hoarders out there.
 
@@ -21,43 +18,42 @@ Karakeep (previously Hoarder) is a self-hostable bookmark-everything app with a 
 
 ## Features
 
-- 🔗 Bookmark links, take simple notes and store images and pdfs.
-- ⬇️ Automatic fetching for link titles, descriptions and images.
-- 📋 Sort your bookmarks into lists.
-- 👥 Collaborate with others on the same list.
-- 🔎 Full text search of all the content stored.
-- ✨ AI-based (aka chatgpt) automatic tagging and summarization. With supports for local models using ollama!
-- 🤖 Rule-based engine for customized management.
-- 🎆 OCR for extracting text from images.
-- 🔖 [Chrome plugin](https://chromewebstore.google.com/detail/karakeep/kgcjekpmcjjogibpjebkhaanilehneje) and [Firefox addon](https://addons.mozilla.org/en-US/firefox/addon/karakeep/) for quick bookmarking.
-- 📱 An [iOS app](https://apps.apple.com/us/app/karakeep-app/id6479258022), and an [Android app](https://play.google.com/store/apps/details?id=app.hoarder.hoardermobile&pcampaignid=web_share).
-- 📰 Auto hoarding from RSS feeds.
-- 🔌 REST API and multiple clients.
-- 🌐 Multi-language support.
-- 🖍️ Mark and store highlights from your hoarded content.
-- 🗄️ Full page archival (using [monolith](https://github.com/Y2Z/monolith)) to protect against link rot.
-- ▶️ Auto video archiving using [yt-dlp](https://github.com/yt-dlp/yt-dlp).
-- ☑️ Bulk actions support.
-- 🔐 SSO support.
-- 🌙 Dark mode support.
-- 💾 Self-hosting first.
-- ⬇️ Bookmark importers from Chrome, Pocket, Linkwarden, Omnivore, Tab Session Manager.
-- 🔄 Automatic sync with browser bookmarks via [floccus](https://floccus.org/).
-- [Planned] Offline reading on mobile, semantic search across bookmarks, ...
-
-**⚠️ This app is under heavy development.**
+- Bookmark links, take simple notes and store images and pdfs.
+- Automatic fetching for link titles, descriptions and images.
+- Sort your bookmarks into lists.
+- Collaborate with others on the same list.
+- Full text & semantic search of all the content stored.
+- LLM-based automatic tagging and summarization. With supports for local models using ollama!
+- LLM Agents (e.g. OpenClaw, Hermes) friendly with powerful [CLI](https://docs.karakeep.com/integrations/command-line), and [official skills](https://docs.karakeep.com/integrations/agentic-skills).
+- Rule-based engine for customized management.
+- OCR for extracting text from images.
+- [Chrome plugin](https://chromewebstore.google.com/detail/karakeep/kgcjekpmcjjogibpjebkhaanilehneje), [Firefox addon](https://addons.mozilla.org/en-US/firefox/addon/karakeep/), and [Safari extension](https://apps.apple.com/gb/app/karakeep-app/id6479258022?platform=mac) for quick bookmarking.
+- An [iOS app](https://apps.apple.com/us/app/karakeep-app/id6479258022), and an [Android app](https://play.google.com/store/apps/details?id=app.hoarder.hoardermobile&pcampaignid=web_share).
+- Mobile offline reading.
+- Auto hoarding from RSS feeds.
+- REST API and multiple clients.
+- Multi-language support.
+- Mark and store highlights from your hoarded content.
+- Full page archival (using [monolith](https://github.com/Y2Z/monolith)) to protect against link rot.
+- Auto video archiving using [yt-dlp](https://github.com/yt-dlp/yt-dlp).
+- Bulk actions support.
+- SSO support.
+- Dark mode support.
+- Self-hosting first.
+- Bookmark importers from Chrome, Pocket, Linkwarden, Omnivore, Tab Session Manager.
+- Automatic sync with browser bookmarks via [floccus](https://floccus.org/).
 
 ## Documentation
 
-- [Installation](https://docs.karakeep.app/Installation/docker)
-- [Configuration](https://docs.karakeep.app/configuration)
-- [Screenshots](https://docs.karakeep.app/screenshots)
-- [Security Considerations](https://docs.karakeep.app/security-considerations)
-- [Development](https://docs.karakeep.app/Development/setup)
+- [Installation](https://docs.karakeep.com/Installation/docker)
+- [Configuration](https://docs.karakeep.com/configuration)
+- [Screenshots](https://docs.karakeep.com/screenshots)
+- [Security Considerations](https://docs.karakeep.com/security-considerations)
+- [Development](https://docs.karakeep.com/Development/setup)
 
 ## Demo
 
-You can access the demo at [https://try.karakeep.app](https://try.karakeep.app). Login with the following creds:
+You can access the demo at [https://try.karakeep.com](https://try.karakeep.com). Login with the following creds:
 
 ```
 email: demo@karakeep.app
@@ -74,7 +70,7 @@ The name Karakeep is inspired by the Arabic word "كراكيب" (karakeeb), a co
 
 - [NextJS](https://nextjs.org/) for the web app. Using app router.
 - [Drizzle](https://orm.drizzle.team/) for the database and its migrations.
-- [NextAuth](https://next-auth.js.org) for authentication.
+- [Better Auth](https://www.better-auth.com) for authentication.
 - [tRPC](https://trpc.io) for client->server communication.
 - [Puppeteer](https://pptr.dev/) for crawling the bookmarks.
 - [OpenAI](https://openai.com/) because AI is so hot right now.
@@ -99,11 +95,17 @@ I'm a systems engineer in my day job (and have been for the past 7 years). I did
 
 ## Translations
 
-Karakeep uses Weblate for managing translations. If you want to help translate Karakeep, you can do so [here](https://hosted.weblate.org/engage/hoarder/).
+Translations live in [`apps/web/lib/i18n/locales`](apps/web/lib/i18n/locales), one `translation.json` per language, with English (`en`) as the source. To fix or improve a translation, open a pull request that edits the relevant file.
 
 ## Karakeep Cloud ☁️
 
-If you're not comfortable with self-hosting, you can use our managed Karakeep cloud at [cloud.karakeep.app](https://cloud.karakeep.app). Cloud subscriptions support the development of Karakeep.
+If you're not comfortable with self-hosting, you can use our managed Karakeep cloud at [cloud.karakeep.com](https://cloud.karakeep.com). Cloud subscriptions support the development of Karakeep.
+
+## One-click Deployment 🚀
+
+Want to self-host without setting up a server by hand? Hostinger has a one-click Karakeep template that deploys the full stack on your own VPS. Use the code `KARAKEEP10` for 10% off annual plans. Check out the [Hostinger guide](https://docs.karakeep.com/Installation/hostinger) for a walkthrough. Hostinger shares some of its revenue with the maintainer.
+
+[![Deploy on Hostinger](https://assets.hostinger.com/vps/deploy.svg)](https://www.hostg.xyz/aff_c?offer_id=815&aff_id=243872&url_id=6969)
 
 ## Support
 

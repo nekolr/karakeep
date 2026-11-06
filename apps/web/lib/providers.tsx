@@ -1,10 +1,12 @@
 "use client";
 
 import type { UserLocalSettings } from "@/lib/userLocalSettings/types";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { ThemeColorSync } from "@/components/theme-color-sync";
 import { ThemeProvider } from "@/components/theme-provider";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Session, SessionProvider } from "@/lib/auth/client";
+import { installRecentErrorCapture } from "@/lib/problemReport/recentErrors";
 import { UserLocalSettingsCtx } from "@/lib/userLocalSettings/bookmarksLayout";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createTRPCClient, httpBatchLink, loggerLink } from "@trpc/client";
@@ -12,12 +14,12 @@ import superjson from "superjson";
 
 import type { ClientConfig } from "@karakeep/shared/config";
 import type { AppRouter } from "@karakeep/trpc/routers/_app";
+import { ClientConfigProvider } from "@karakeep/shared-react/providers/client-config-provider";
 import {
   TRPC_MAX_URL_LENGTH_INTERNAL,
   TRPCProvider,
 } from "@karakeep/shared-react/trpc";
 
-import { ClientConfigCtx } from "./clientConfig";
 import CustomI18nextProvider from "./i18n/provider";
 
 function makeQueryClient() {
@@ -61,6 +63,12 @@ export default function Providers({
 }) {
   const queryClient = getQueryClient();
 
+  useEffect(() => {
+    if (clientConfig.problemReports.enabled) {
+      installRecentErrorCapture();
+    }
+  }, [clientConfig.problemReports.enabled]);
+
   const [trpcClient] = useState(() =>
     createTRPCClient<AppRouter>({
       links: [
@@ -80,7 +88,7 @@ export default function Providers({
   );
 
   return (
-    <ClientConfigCtx.Provider value={clientConfig}>
+    <ClientConfigProvider value={clientConfig}>
       <UserLocalSettingsCtx.Provider value={userLocalSettings}>
         <SessionProvider session={session}>
           <QueryClientProvider client={queryClient}>
@@ -92,6 +100,7 @@ export default function Providers({
                   enableSystem
                   disableTransitionOnChange
                 >
+                  <ThemeColorSync />
                   <TooltipProvider delayDuration={0}>
                     {children}
                   </TooltipProvider>
@@ -101,6 +110,6 @@ export default function Providers({
           </QueryClientProvider>
         </SessionProvider>
       </UserLocalSettingsCtx.Provider>
-    </ClientConfigCtx.Provider>
+    </ClientConfigProvider>
   );
 }

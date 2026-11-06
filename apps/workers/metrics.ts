@@ -1,12 +1,16 @@
 import { prometheus } from "@hono/prometheus";
 import { Counter, Histogram, Registry } from "prom-client";
 
+import serverConfig from "@karakeep/shared/config";
+
 export const registry = new Registry();
 
 export const { printMetrics } = prometheus({
   registry: registry,
   prefix: "karakeep_",
-  collectDefaultMetrics: true,
+  // Default metrics start a recurring event-loop sampler and a GC observer.
+  // Without a configured token, the metrics endpoint is inaccessible.
+  collectDefaultMetrics: serverConfig.prometheus.enabled,
 });
 
 export const workerStatsCounter = new Counter({
@@ -18,7 +22,7 @@ export const workerStatsCounter = new Counter({
 export const crawlerStatusCodeCounter = new Counter({
   name: "karakeep_crawler_status_codes_total",
   help: "HTTP status codes encountered during crawling",
-  labelNames: ["status_code"],
+  labelNames: ["status_code", "proxy"],
 });
 
 export const bookmarkCrawlLatencyHistogram = new Histogram({

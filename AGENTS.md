@@ -4,7 +4,7 @@ This document provides context about the Karakeep project for the different agen
 
 ## Project Overview
 
-Karakeep is a monorepo project managed with Turborepo. It appears to be a web application with a focus on collecting and organizing information, possibly a bookmarking or "read-it-later" service. The project is built with a modern tech stack, including:
+Karakeep is a monorepo project managed with Turborepo. It is a "read-it-later" bookmarking application with a focus on collecting and organizing information. The project is built with a modern tech stack, including:
 
 - **Frontend:** Next.js, React, TypeScript, Tailwind CSS
 - **Backend:** Hono (a lightweight web framework), tRPC
@@ -63,6 +63,7 @@ The project is organized into `apps` and `packages`:
 - `pnpm format`: Format the codebase.
 - `pnpm format:fix`: Fix formatting issues.
 - `pnpm test`: Run tests.
+- To scope any of the above to one package, pass a turbo filter: `pnpm typecheck --filter=@karakeep/web` (prefer this over `pnpm --filter`).
 - `pnpm db:generate --name description_of_schema_change`: db migration after making schema changes
 
 Starting services:

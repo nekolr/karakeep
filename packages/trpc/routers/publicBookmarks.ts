@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import {
+  DEFAULT_NUM_BOOKMARKS_PER_PAGE,
   MAX_NUM_BOOKMARKS_PER_PAGE,
   zPublicBookmarkSchema,
   zSortOrder,
@@ -25,7 +26,7 @@ export const publicBookmarks = router({
           description: true,
           icon: true,
         })
-        .merge(z.object({ ownerName: z.string() })),
+        .extend({ ownerName: z.string() }),
     )
     .query(async ({ input, ctx }) => {
       return await List.getPublicListMetadata(
@@ -39,7 +40,12 @@ export const publicBookmarks = router({
       z.object({
         listId: z.string(),
         cursor: zCursorV2.nullish(),
-        limit: z.number().max(MAX_NUM_BOOKMARKS_PER_PAGE).default(20),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(MAX_NUM_BOOKMARKS_PER_PAGE)
+          .default(DEFAULT_NUM_BOOKMARKS_PER_PAGE),
         sortOrder: zSortOrder.exclude(["relevance"]).optional().default("desc"),
       }),
     )
@@ -51,7 +57,7 @@ export const publicBookmarks = router({
             description: true,
             icon: true,
           })
-          .merge(z.object({ numItems: z.number(), ownerName: z.string() })),
+          .extend({ numItems: z.number(), ownerName: z.string() }),
         bookmarks: z.array(zPublicBookmarkSchema),
         nextCursor: zCursorV2.nullable(),
       }),

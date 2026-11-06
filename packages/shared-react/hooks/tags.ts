@@ -1,4 +1,5 @@
 import {
+  isServer,
   keepPreviousData,
   useInfiniteQuery,
   useMutation,
@@ -9,6 +10,7 @@ import {
 import { ZTagListResponse } from "@karakeep/shared/types/tags";
 
 import { useTRPC } from "../trpc";
+import { scheduleInvalidateQueries } from "./query-invalidation";
 
 type TRPCApi = ReturnType<typeof useTRPC>;
 
@@ -20,7 +22,9 @@ export function usePaginatedSearchTags(
     ...api.tags.list.infiniteQueryOptions(input, {
       placeholderData: keepPreviousData,
       getNextPageParam: (lastPage) => lastPage.nextCursor,
-      gcTime: 60_000,
+      // On the server, a finite gcTime schedules a timer that pins the
+      // request's query cache in memory; leave it at the default (Infinity).
+      gcTime: isServer ? Infinity : 60_000,
     }),
     select: (data) => ({
       tags: data.pages.flatMap((page) => page.tags),
@@ -43,7 +47,11 @@ export function useTagAutocomplete<T = ZTagListResponse>(opts: {
       },
       {
         placeholderData: keepPreviousData,
-        gcTime: opts.nameContains?.length > 0 ? 60_000 : 3_600_000,
+        gcTime: isServer
+          ? Infinity
+          : opts.nameContains?.length > 0
+            ? 60_000
+            : 3_600_000,
         enabled: opts.enabled,
       },
     ),
@@ -85,6 +93,9 @@ export function useUpdateTag(
         queryClient.invalidateQueries(
           api.bookmarks.getBookmarks.queryFilter({ tagId: res.id }),
         );
+        queryClient.invalidateQueries(
+          api.bookmarks.getBookmarks.infiniteQueryFilter({ tagId: res.id }),
+        );
 
         // TODO: Maybe we can only look at the cache and invalidate only affected bookmarks
         queryClient.invalidateQueries(api.bookmarks.getBookmark.pathFilter());
@@ -110,6 +121,9 @@ export function useMergeTag(
           queryClient.invalidateQueries(
             api.bookmarks.getBookmarks.queryFilter({ tagId }),
           );
+          queryClient.invalidateQueries(
+            api.bookmarks.getBookmarks.infiniteQueryFilter({ tagId }),
+          );
         });
         // TODO: Maybe we can only look at the cache and invalidate only affected bookmarks
         queryClient.invalidateQueries(api.bookmarks.getBookmark.pathFilter());
@@ -129,8 +143,11 @@ export function useDeleteTag(
     api.tags.delete.mutationOptions({
       ...opts,
       onSuccess: (res, req, meta, context) => {
-        queryClient.invalidateQueries(api.tags.list.pathFilter());
-        queryClient.invalidateQueries(api.bookmarks.getBookmark.pathFilter());
+        scheduleInvalidateQueries(queryClient, api.tags.list.pathFilter());
+        scheduleInvalidateQueries(
+          queryClient,
+          api.bookmarks.getBookmark.pathFilter(),
+        );
         return opts?.onSuccess?.(res, req, meta, context);
       },
     }),

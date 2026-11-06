@@ -14,13 +14,10 @@ spec:
     spec:
       containers:
         - name: chrome
-          image: karakeep/chrome-desktop:local
-          imagePullPolicy: IfNotPresent
-          securityContext:
-            allowPrivilegeEscalation: true
-            capabilities:
-              add:
-                - SYS_ADMIN
-          env:
-            - name: CHROME_REMOTE_DEBUGGING_PORT
-              value: "9222"
+          image: ghcr.io/karakeep-app/karakeep-chrome:release
+          args:
+            - --disable-gpu
+            - --disable-dev-shm-usage
+            - --hide-scrollbars
+            - --disable-blink-features=AutomationControlled
+            - --window-size=1440,900

@@ -21,8 +21,11 @@ import {
 import HighlightCard from "./HighlightCard";
 
 function Highlight({ highlight }: { highlight: ZHighlight }) {
-  const { fromNow, localCreatedAt } = useRelativeTime(highlight.createdAt);
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const { fromNow, localCreatedAt } = useRelativeTime(
+    highlight.createdAt,
+    i18n.language,
+  );
   return (
     <div className="flex flex-col gap-2">
       <HighlightCard highlight={highlight} clickable={false} readOnly={false} />
@@ -125,7 +128,7 @@ export default function AllHighlights({
           allHighlights.map((h) => (
             <React.Fragment key={h.id}>
               <Highlight highlight={h} />
-              <Separator className="m-2 h-0.5 bg-gray-100 last:hidden" />
+              <Separator className="m-2 h-0.5 bg-gray-100 last:hidden dark:bg-border" />
             </React.Fragment>
           ))}
         {allHighlights && allHighlights.length == 0 && (

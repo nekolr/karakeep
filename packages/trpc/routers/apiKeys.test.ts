@@ -1,10 +1,18 @@
+import bcrypt from "bcryptjs";
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
-import { apiKeys } from "@karakeep/db/schema";
+import { accounts, apiKeys } from "@karakeep/db/schema";
+import { API_KEY_FULL_ACCESS_SCOPE } from "@karakeep/shared/types/apiKeys";
 
 import type { CustomTestContext } from "../testUtils";
-import { defaultBeforeEach, getApiCaller } from "../testUtils";
+import { CREDENTIAL_PROVIDER_ID } from "../auth";
+import {
+  createTestUser,
+  defaultBeforeEach,
+  getApiCaller,
+  getApiKeyCallerForPlainKey,
+} from "../testUtils";
 
 vi.mock("@karakeep/shared/config", async (original) => {
   const mod = (await original()) as typeof import("@karakeep/shared/config");
@@ -24,15 +32,11 @@ beforeEach<CustomTestContext>(defaultBeforeEach(false));
 
 describe("API Keys Routes", () => {
   describe("create", () => {
-    test<CustomTestContext>("creates API key successfully", async ({
-      unauthedAPICaller,
-      db,
-    }) => {
-      const user = await unauthedAPICaller.users.create({
+    test<CustomTestContext>("creates API key successfully", async ({ db }) => {
+      const user = await createTestUser(db, {
         name: "Test User",
         email: "test@test.com",
         password: "password123",
-        confirmPassword: "password123",
       });
 
       const api = getApiCaller(db, user.id, user.email).apiKeys;
@@ -42,6 +46,25 @@ describe("API Keys Routes", () => {
       expect(result.id).toBeDefined();
       expect(result.key).toMatch(/^ak2_[a-f0-9]{20}_[a-f0-9]{32}$/);
       expect(result.createdAt).toBeInstanceOf(Date);
+      expect(result.scopes).toEqual([API_KEY_FULL_ACCESS_SCOPE]);
+    });
+
+    test<CustomTestContext>("creates API key with explicit scopes", async ({
+      db,
+    }) => {
+      const user = await createTestUser(db, {
+        name: "Test User",
+        email: "scoped-create@test.com",
+        password: "password123",
+      });
+
+      const api = getApiCaller(db, user.id, user.email).apiKeys;
+      const result = await api.create({
+        name: "Scoped Key",
+        scopes: ["bookmarks:read", "users:read"],
+      });
+
+      expect(result.scopes).toEqual(["bookmarks:read", "users:read"]);
     });
 
     test<CustomTestContext>("requires authentication", async ({
@@ -54,15 +77,11 @@ describe("API Keys Routes", () => {
   });
 
   describe("list", () => {
-    test<CustomTestContext>("lists user's API keys", async ({
-      unauthedAPICaller,
-      db,
-    }) => {
-      const user = await unauthedAPICaller.users.create({
+    test<CustomTestContext>("lists user's API keys", async ({ db }) => {
+      const user = await createTestUser(db, {
         name: "Test User",
         email: "test@test.com",
         password: "password123",
-        confirmPassword: "password123",
       });
 
       const api = getApiCaller(db, user.id, user.email).apiKeys;
@@ -78,19 +97,18 @@ describe("API Keys Routes", () => {
         name: expect.any(String),
         createdAt: expect.any(Date),
         keyId: expect.any(String),
+        scopes: [API_KEY_FULL_ACCESS_SCOPE],
       });
       expect(result.keys[0]).not.toHaveProperty("key");
     });
 
     test<CustomTestContext>("returns empty list for new user", async ({
-      unauthedAPICaller,
       db,
     }) => {
-      const user = await unauthedAPICaller.users.create({
+      const user = await createTestUser(db, {
         name: "Test User",
         email: "test@test.com",
         password: "password123",
-        confirmPassword: "password123",
       });
 
       const api = getApiCaller(db, user.id, user.email).apiKeys;
@@ -100,21 +118,18 @@ describe("API Keys Routes", () => {
     });
 
     test<CustomTestContext>("privacy isolation between users", async ({
-      unauthedAPICaller,
       db,
     }) => {
-      const user1 = await unauthedAPICaller.users.create({
+      const user1 = await createTestUser(db, {
         name: "User 1",
         email: "user1@test.com",
         password: "password123",
-        confirmPassword: "password123",
       });
 
-      const user2 = await unauthedAPICaller.users.create({
+      const user2 = await createTestUser(db, {
         name: "User 2",
         email: "user2@test.com",
         password: "password123",
-        confirmPassword: "password123",
       });
 
       const api1 = getApiCaller(db, user1.id, user1.email).apiKeys;
@@ -146,11 +161,10 @@ describe("API Keys Routes", () => {
       unauthedAPICaller,
       db,
     }) => {
-      const user = await unauthedAPICaller.users.create({
+      const user = await createTestUser(db, {
         name: "Test User",
         email: "test@test.com",
         password: "password123",
-        confirmPassword: "password123",
       });
 
       const api = getApiCaller(db, user.id, user.email).apiKeys;
@@ -174,15 +188,11 @@ describe("API Keys Routes", () => {
   });
 
   describe("revoke", () => {
-    test<CustomTestContext>("revokes API key successfully", async ({
-      unauthedAPICaller,
-      db,
-    }) => {
-      const user = await unauthedAPICaller.users.create({
+    test<CustomTestContext>("revokes API key successfully", async ({ db }) => {
+      const user = await createTestUser(db, {
         name: "Test User",
         email: "test@test.com",
         password: "password123",
-        confirmPassword: "password123",
       });
 
       const api = getApiCaller(db, user.id, user.email).apiKeys;
@@ -199,21 +209,18 @@ describe("API Keys Routes", () => {
     });
 
     test<CustomTestContext>("cannot revoke another user's key", async ({
-      unauthedAPICaller,
       db,
     }) => {
-      const user1 = await unauthedAPICaller.users.create({
+      const user1 = await createTestUser(db, {
         name: "User 1",
         email: "user1@test.com",
         password: "password123",
-        confirmPassword: "password123",
       });
 
-      const user2 = await unauthedAPICaller.users.create({
+      const user2 = await createTestUser(db, {
         name: "User 2",
         email: "user2@test.com",
         password: "password123",
-        confirmPassword: "password123",
       });
 
       const api1 = getApiCaller(db, user1.id, user1.email).apiKeys;
@@ -232,14 +239,12 @@ describe("API Keys Routes", () => {
     });
 
     test<CustomTestContext>("silently handles non-existent key", async ({
-      unauthedAPICaller,
       db,
     }) => {
-      const user = await unauthedAPICaller.users.create({
+      const user = await createTestUser(db, {
         name: "Test User",
         email: "test@test.com",
         password: "password123",
-        confirmPassword: "password123",
       });
 
       const api = getApiCaller(db, user.id, user.email).apiKeys;
@@ -256,6 +261,57 @@ describe("API Keys Routes", () => {
         unauthedAPICaller.apiKeys.revoke({ id: "some-id" }),
       ).rejects.toThrow(/UNAUTHORIZED/);
     });
+
+    test<CustomTestContext>("an API key can revoke itself", async ({
+      unauthedAPICaller,
+      db,
+    }) => {
+      const user = await createTestUser(db, {
+        name: "Test User",
+        email: "test@test.com",
+        password: "password123",
+      });
+
+      const key = await unauthedAPICaller.apiKeys.exchange({
+        keyName: "Mobile App",
+        email: user.email,
+        password: "password123",
+      });
+      const keyCaller = await getApiKeyCallerForPlainKey(db, key.key);
+
+      await keyCaller.apiKeys.revoke({ id: key.id });
+
+      const remainingKeys = await db
+        .select()
+        .from(apiKeys)
+        .where(eq(apiKeys.id, key.id));
+      expect(remainingKeys).toHaveLength(0);
+    });
+
+    test<CustomTestContext>("an API key cannot revoke other keys", async ({
+      db,
+    }) => {
+      const user = await createTestUser(db, {
+        name: "Test User",
+        email: "test@test.com",
+        password: "password123",
+      });
+
+      const api = getApiCaller(db, user.id, user.email).apiKeys;
+      const otherKey = await api.create({ name: "Other Key" });
+      const key = await api.create({ name: "Caller Key" });
+      const keyCaller = await getApiKeyCallerForPlainKey(db, key.key);
+
+      await expect(
+        keyCaller.apiKeys.revoke({ id: otherKey.id }),
+      ).rejects.toThrow(/API keys can only revoke themselves/);
+
+      const remainingKeys = await db
+        .select()
+        .from(apiKeys)
+        .where(eq(apiKeys.id, otherKey.id));
+      expect(remainingKeys).toHaveLength(1);
+    });
   });
 
   describe("validate", () => {
@@ -263,11 +319,10 @@ describe("API Keys Routes", () => {
       unauthedAPICaller,
       db,
     }) => {
-      const user = await unauthedAPICaller.users.create({
+      const user = await createTestUser(db, {
         name: "Test User",
         email: "test@test.com",
         password: "password123",
-        confirmPassword: "password123",
       });
 
       const api = getApiCaller(db, user.id, user.email).apiKeys;
@@ -314,11 +369,10 @@ describe("API Keys Routes", () => {
       unauthedAPICaller,
       db,
     }) => {
-      const user = await unauthedAPICaller.users.create({
+      const user = await createTestUser(db, {
         name: "Test User",
         email: "test@test.com",
         password: "password123",
-        confirmPassword: "password123",
       });
 
       const api = getApiCaller(db, user.id, user.email).apiKeys;
@@ -337,11 +391,10 @@ describe("API Keys Routes", () => {
       unauthedAPICaller,
       db,
     }) => {
-      const user = await unauthedAPICaller.users.create({
+      const user = await createTestUser(db, {
         name: "Test User",
         email: "test@test.com",
         password: "password123",
-        confirmPassword: "password123",
       });
 
       const api = getApiCaller(db, user.id, user.email).apiKeys;
@@ -361,11 +414,10 @@ describe("API Keys Routes", () => {
       db,
       unauthedAPICaller,
     }) => {
-      const user = await unauthedAPICaller.users.create({
+      const user = await createTestUser(db, {
         name: "Test User",
         email: "exchange@test.com",
         password: "password123",
-        confirmPassword: "password123",
       });
 
       const result = await unauthedAPICaller.apiKeys.exchange({
@@ -377,6 +429,7 @@ describe("API Keys Routes", () => {
       expect(result.name).toBe("Extension Key");
       expect(result.key).toMatch(/^ak2_[a-f0-9]{20}_[a-f0-9]{32}$/);
       expect(result.createdAt).toBeInstanceOf(Date);
+      expect(result.scopes).toEqual([API_KEY_FULL_ACCESS_SCOPE]);
 
       const dbKeys = await db
         .select()
@@ -387,14 +440,61 @@ describe("API Keys Routes", () => {
       expect(dbKeys[0].name).toBe("Extension Key");
     });
 
-    test<CustomTestContext>("rejects wrong password", async ({
+    test<CustomTestContext>("stores emails lowercased and matches them case-insensitively", async ({
+      db,
       unauthedAPICaller,
     }) => {
-      await unauthedAPICaller.users.create({
+      const user = await createTestUser(db, {
+        name: "Test User",
+        email: "Mixed.Case@Test.com",
+        password: "password123",
+      });
+      expect(user.email).toBe("mixed.case@test.com");
+
+      const result = await unauthedAPICaller.apiKeys.exchange({
+        keyName: "Extension Key",
+        email: "MIXED.case@test.COM",
+        password: "password123",
+      });
+      expect(result.name).toBe("Extension Key");
+    });
+
+    test<CustomTestContext>("exchanges credentials for API key with explicit scopes", async ({
+      db,
+      unauthedAPICaller,
+    }) => {
+      const user = await createTestUser(db, {
+        name: "Scoped Exchange User",
+        email: "scoped-exchange@test.com",
+        password: "password123",
+      });
+
+      const result = await unauthedAPICaller.apiKeys.exchange({
+        keyName: "Scoped Extension Key",
+        email: "scoped-exchange@test.com",
+        password: "password123",
+        scopes: ["bookmarks:read", "users:read"],
+      });
+
+      expect(result.scopes).toEqual(["bookmarks:read", "users:read"]);
+
+      const dbKeys = await db
+        .select()
+        .from(apiKeys)
+        .where(eq(apiKeys.userId, user.id));
+
+      expect(dbKeys).toHaveLength(1);
+      expect(dbKeys[0].scopes).toEqual(["bookmarks:read", "users:read"]);
+    });
+
+    test<CustomTestContext>("rejects wrong password", async ({
+      db,
+      unauthedAPICaller,
+    }) => {
+      await createTestUser(db, {
         name: "Test User",
         email: "wrongpass@test.com",
         password: "password123",
-        confirmPassword: "password123",
       });
 
       await expect(() =>
@@ -418,22 +518,71 @@ describe("API Keys Routes", () => {
       ).rejects.toThrow(/UNAUTHORIZED/);
     });
 
+    test<CustomTestContext>("exchanges a legacy salted password", async ({
+      db,
+      unauthedAPICaller,
+    }) => {
+      // Users created before the better-auth migration have their password
+      // stored as bcrypt(password + salt) in a `bcrypt-salted:` hash.
+      const user = await createTestUser(db, {
+        name: "Legacy User",
+        email: "legacy@test.com",
+      });
+      const salt = "legacy-salt";
+      await db.insert(accounts).values({
+        userId: user.id,
+        accountId: user.id,
+        providerId: CREDENTIAL_PROVIDER_ID,
+        password: `bcrypt-salted:${salt}:${await bcrypt.hash("password123" + salt, 10)}`,
+      });
+
+      await expect(() =>
+        unauthedAPICaller.apiKeys.exchange({
+          keyName: "Legacy Key",
+          email: "legacy@test.com",
+          password: "wrongpassword",
+        }),
+      ).rejects.toThrow(/UNAUTHORIZED/);
+
+      const result = await unauthedAPICaller.apiKeys.exchange({
+        keyName: "Legacy Key",
+        email: "legacy@test.com",
+        password: "password123",
+      });
+      expect(result.name).toBe("Legacy Key");
+
+      const validationResult = await unauthedAPICaller.apiKeys.validate({
+        apiKey: result.key,
+      });
+      expect(validationResult.success).toBe(true);
+    });
+
+    test<CustomTestContext>("rejects user without a credential account", async ({
+      db,
+      unauthedAPICaller,
+    }) => {
+      await createTestUser(db, {
+        name: "OAuth User",
+        email: "oauth-exchange@test.com",
+      });
+
+      await expect(() =>
+        unauthedAPICaller.apiKeys.exchange({
+          keyName: "Extension Key",
+          email: "oauth-exchange@test.com",
+          password: "password123",
+        }),
+      ).rejects.toThrow(/UNAUTHORIZED/);
+    });
+
     test<CustomTestContext>("rejects unverified user when email verification is enabled", async ({
       db,
     }) => {
-      // Import User model to create an unverified user directly
-      const { User } = await import("../models/users");
-
       // Create user with password but without email verification
-      await User.createRaw(db, {
+      await createTestUser(db, {
         name: "Unverified User",
         email: "unverified@test.com",
-        password: await (await import("../auth")).hashPassword(
-          "password123",
-          "test-salt",
-        ),
-        salt: "test-salt",
-        emailVerified: null, // User is not verified
+        password: "password123",
       });
 
       // Mock serverConfig to enable email verification requirement
@@ -471,11 +620,10 @@ describe("API Keys Routes", () => {
       unauthedAPICaller,
       db,
     }) => {
-      const user = await unauthedAPICaller.users.create({
+      const user = await createTestUser(db, {
         name: "Test User",
         email: "lifecycle@test.com",
         password: "password123",
-        confirmPassword: "password123",
       });
 
       const api = getApiCaller(db, user.id, user.email).apiKeys;
@@ -503,15 +651,11 @@ describe("API Keys Routes", () => {
       expect(finalListResult.keys).toHaveLength(0);
     });
 
-    test<CustomTestContext>("multiple keys per user", async ({
-      unauthedAPICaller,
-      db,
-    }) => {
-      const user = await unauthedAPICaller.users.create({
+    test<CustomTestContext>("multiple keys per user", async ({ db }) => {
+      const user = await createTestUser(db, {
         name: "Test User",
         email: "multikey@test.com",
         password: "password123",
-        confirmPassword: "password123",
       });
 
       const api = getApiCaller(db, user.id, user.email).apiKeys;
@@ -536,13 +680,13 @@ describe("API Keys Routes", () => {
     });
 
     test<CustomTestContext>("exchange creates usable key", async ({
+      db,
       unauthedAPICaller,
     }) => {
-      await unauthedAPICaller.users.create({
+      await createTestUser(db, {
         name: "Exchange User",
         email: "exchangetest@test.com",
         password: "password123",
-        confirmPassword: "password123",
       });
 
       const exchangedKey = await unauthedAPICaller.apiKeys.exchange({
@@ -559,16 +703,40 @@ describe("API Keys Routes", () => {
     });
   });
 
-  describe("backward compatibility", () => {
-    test<CustomTestContext>("validates version 1 keys continues to work", async ({
-      unauthedAPICaller,
+  describe("scope enforcement", () => {
+    test<CustomTestContext>("fullaccess API key auth cannot manage API keys", async ({
       db,
     }) => {
-      const user = await unauthedAPICaller.users.create({
+      const user = await createTestUser(db, {
+        name: "Meta User",
+        email: "meta@test.com",
+        password: "password123",
+      });
+
+      const sessionCaller = getApiCaller(db, user.id, user.email);
+      const fullAccessKey = await sessionCaller.apiKeys.create({
+        name: "Full Access Key",
+      });
+
+      const apiKeyCaller = await getApiKeyCallerForPlainKey(
+        db,
+        fullAccessKey.key,
+      );
+
+      await expect(() => apiKeyCaller.apiKeys.list()).rejects.toThrow(
+        /FORBIDDEN|API keys are not allowed for this endpoint/i,
+      );
+    });
+  });
+
+  describe("backward compatibility", () => {
+    test<CustomTestContext>("validates version 1 keys continues to work", async ({
+      db,
+    }) => {
+      const user = await createTestUser(db, {
         name: "Test User",
         email: "test@test.com",
         password: "password123",
-        confirmPassword: "password123",
       });
 
       // Manually generated v1 key and its corresponding hash

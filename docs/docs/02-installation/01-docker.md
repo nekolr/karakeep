@@ -1,4 +1,8 @@
-# Docker
+---
+sidebar_label: "Docker"
+---
+
+# Install Karakeep with Docker
 
 ### Requirements
 
@@ -36,7 +40,7 @@ MEILI_MASTER_KEY=another_random_string
 NEXTAUTH_URL=http://localhost:3000
 ```
 
-You **should** change the random strings. You can use `openssl rand -base64 36` in a seperate terminal window to generate the random strings. You should also change the `NEXTAUTH_URL` variable to point to your server address.
+You **should** change the random strings. You can use `openssl rand -base64 36` in a separate terminal window to generate the random strings. You should also change the `NEXTAUTH_URL` variable to point to your server address.
 
 Using `KARAKEEP_VERSION=release` will pull the latest stable version. You might want to pin the version instead to control the upgrades (e.g. `KARAKEEP_VERSION=0.10.0`). Check the latest versions [here](https://github.com/karakeep-app/karakeep/pkgs/container/karakeep).
 
@@ -86,4 +90,10 @@ Updating Karakeep will depend on what you used for the `KARAKEEP_VERSION` env va
 - If you pinned the app to a specific version, bump the version and re-run `docker compose up -d`. This should pull the new version for you.
 - If you used `KARAKEEP_VERSION=release`, you'll need to force docker to pull the latest version by running `docker compose up --pull always -d`.
 
-Note that if you want to upgrade/migrate `Meilisearch` versions, refer to the [troubleshooting](../06-administration/05-troubleshooting.md) page.
+If your custom Compose file still uses the old Alpine Chrome image, follow the
+[Chrome image migration guide](../06-administration/09-chrome-image-migration.md).
+
+Updating Karakeep doesn't change the Meilisearch image in your compose file. If
+you move Meilisearch to a newer version, for example by copying a newer compose
+file, it needs a one-time database upgrade first. Follow the
+[Meilisearch upgrade guide](../06-administration/10-meilisearch-upgrade.md).

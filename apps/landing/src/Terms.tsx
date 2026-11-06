@@ -1,13 +1,6 @@
-import SEO from "./SEO";
-
 export default function Terms() {
   return (
     <div className="mx-auto max-w-3xl p-4">
-      <SEO
-        title="Terms of Service"
-        description="Karakeep Terms of Service. Read our terms governing the use of Karakeep Cloud, operated by Localhost Labs Ltd."
-        path="/terms"
-      />
       <main className="space-y-6">
         <h1 className="text-3xl font-bold text-gray-900">
           Karakeep – Terms of Service
@@ -72,10 +65,10 @@ export default function Terms() {
           <li>
             You must notify us immediately at{" "}
             <a
-              href="mailto:support@karakeep.app"
+              href="mailto:support@karakeep.com"
               className="text-blue-600 hover:underline"
             >
-              support@karakeep.app
+              support@karakeep.com
             </a>{" "}
             if you become aware of any unauthorized access to your account.
           </li>
@@ -111,10 +104,10 @@ export default function Terms() {
             Refunds are available if requested within 7 days of your first
             payment. To request a refund, contact us at{" "}
             <a
-              href="mailto:support@karakeep.app"
+              href="mailto:support@karakeep.com"
               className="text-blue-600 hover:underline"
             >
-              support@karakeep.app
+              support@karakeep.com
             </a>
             .
           </li>
@@ -150,10 +143,10 @@ export default function Terms() {
           If you believe that content stored or displayed through the Service
           infringes your copyright, please contact us at{" "}
           <a
-            href="mailto:support@karakeep.app"
+            href="mailto:support@karakeep.com"
             className="text-blue-600 hover:underline"
           >
-            support@karakeep.app
+            support@karakeep.com
           </a>{" "}
           with sufficient information to identify the material and demonstrate
           your ownership or authorization to act on behalf of the rights holder.
@@ -306,10 +299,10 @@ export default function Terms() {
           <br />
           Email:{" "}
           <a
-            href="mailto:support@karakeep.app"
+            href="mailto:support@karakeep.com"
             className="text-blue-600 hover:underline"
           >
-            support@karakeep.app
+            support@karakeep.com
           </a>
         </p>
       </main>

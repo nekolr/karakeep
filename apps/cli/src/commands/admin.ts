@@ -1,3 +1,5 @@
+import { stdin as input, stdout as output } from "node:process";
+import readline from "node:readline/promises";
 import { getGlobalOptions } from "@/lib/globals";
 import {
   printErrorMessageWithReason,
@@ -5,7 +7,7 @@ import {
   printStatusMessage,
 } from "@/lib/output";
 import { getAPIClient } from "@/lib/trpc";
-import { Command } from "@commander-js/extra-typings";
+import { Command, InvalidArgumentError } from "@commander-js/extra-typings";
 import { getBorderCharacters, table } from "table";
 
 export const adminCmd = new Command()
@@ -17,6 +19,43 @@ function toHumanReadableSize(size: number): string {
   if (size === 0) return "0 Bytes";
   const i = Math.floor(Math.log(size) / Math.log(1024));
   return (size / Math.pow(1024, i)).toFixed(2) + " " + sizes[i];
+}
+
+function parseDuration(value: string): number {
+  const match = /^(\d+(?:\.\d+)?)(s|m|h|d|w)?$/.exec(
+    value.trim().toLowerCase(),
+  );
+  if (!match) {
+    throw new InvalidArgumentError(
+      "duration must be a positive number of seconds or use s, m, h, d, or w (for example, 1h)",
+    );
+  }
+
+  const unitSeconds = {
+    s: 1,
+    m: 60,
+    h: 60 * 60,
+    d: 24 * 60 * 60,
+    w: 7 * 24 * 60 * 60,
+  } as const;
+  const duration =
+    Number(match[1]) *
+    (match[2] ? unitSeconds[match[2] as keyof typeof unitSeconds] : 1);
+  if (!Number.isSafeInteger(duration) || duration <= 0) {
+    throw new InvalidArgumentError(
+      "duration must resolve to a positive whole number of seconds",
+    );
+  }
+  return duration;
+}
+
+const modifiedWithinOptionDescription =
+  "only process bookmarks modified within this window (for example, 30m, 1h, or 2d)";
+
+function modifiedWithinStatusSuffix(modifiedWithinSeconds?: number) {
+  return modifiedWithinSeconds === undefined
+    ? ""
+    : ` modified within the last ${modifiedWithinSeconds} seconds`;
 }
 
 // --- Users subcommand ---
@@ -47,14 +86,7 @@ usersCmd
         });
       } else {
         const data: string[][] = [
-          [
-            "Name",
-            "Email",
-            "Num Bookmarks",
-            "Asset Sizes",
-            "Role",
-            "Local User",
-          ],
+          ["id", "Name", "Email", "Num Bookmarks", "Asset Sizes", "Role"],
         ];
 
         usersResp.users.forEach((user) => {
@@ -67,12 +99,12 @@ usersCmd
           const assetSizesDisplay = `${toHumanReadableSize(stats.assetSizes)} / ${user.storageQuota ? toHumanReadableSize(user.storageQuota) : "Unlimited"}`;
 
           data.push([
+            user.id,
             user.name,
             user.email,
             numBookmarksDisplay,
             assetSizesDisplay,
             user.role ?? "",
-            user.localUser ? "✓" : "✗",
           ]);
         });
 
@@ -89,6 +121,114 @@ usersCmd
       }
     } catch (error) {
       printErrorMessageWithReason("Failed to list all users", error as object);
+    }
+  });
+
+usersCmd
+  .command("purge-over-quota")
+  .description(
+    "delete a user's oldest bookmarks until they are within their bookmark quota",
+  )
+  .argument("<userId>", "the id of the user to purge bookmarks for")
+  .option("--dry-run", "only show how many bookmarks would be deleted")
+  .option("-y, --yes", "skip confirmation prompt")
+  .action(async (userId, opts) => {
+    const api = getAPIClient();
+
+    try {
+      const plan = await api.admin.purgeBookmarksOverQuota.mutate({
+        userId,
+        dryRun: true,
+      });
+
+      if (plan.numBookmarksToDelete === 0 || opts.dryRun) {
+        if (getGlobalOptions().json) {
+          printObject(plan);
+        } else {
+          printStatusMessage(
+            true,
+            `User has ${plan.numBookmarks} bookmarks with a quota of ${plan.bookmarkQuota}. ${plan.numBookmarksToDelete} bookmarks would be deleted.`,
+          );
+        }
+        return;
+      }
+
+      if (!opts.yes) {
+        const rl = readline.createInterface({ input, output });
+        const answer = (
+          await rl.question(
+            `User has ${plan.numBookmarks} bookmarks with a quota of ${plan.bookmarkQuota}. This will permanently delete their ${plan.numBookmarksToDelete} oldest bookmarks. Proceed? (yes/no): `,
+          )
+        )
+          .trim()
+          .toLowerCase();
+        rl.close();
+        if (answer !== "y" && answer !== "yes") {
+          printStatusMessage(false, "Purge aborted by user");
+          return;
+        }
+      }
+
+      const result = await api.admin.purgeBookmarksOverQuota.mutate({
+        userId,
+      });
+      if (getGlobalOptions().json) {
+        printObject(result);
+      } else {
+        printStatusMessage(
+          true,
+          result.enqueued
+            ? `Purge of ${result.numBookmarksToDelete} bookmarks queued`
+            : "User is already within their bookmark quota",
+        );
+      }
+    } catch (error) {
+      printErrorMessageWithReason(
+        "Failed to purge bookmarks over quota",
+        error as object,
+      );
+    }
+  });
+
+usersCmd
+  .command("delete")
+  .description("permanently delete a user and all of their data")
+  .argument("<user>", "the id or email of the user to delete")
+  .option("-y, --yes", "skip confirmation prompt")
+  .action(async (idOrEmail, opts) => {
+    const api = getAPIClient();
+
+    try {
+      const user = await api.admin.getUser.query(
+        idOrEmail.includes("@") ? { email: idOrEmail } : { id: idOrEmail },
+      );
+
+      if (!opts.yes) {
+        // Prompt on stderr to keep stdout clean for --json output.
+        const rl = readline.createInterface({ input, output: process.stderr });
+        const answer = (
+          await rl.question(
+            `This will permanently delete user "${user.name}" (${user.email}) and all of their data. Proceed? (yes/no): `,
+          )
+        )
+          .trim()
+          .toLowerCase();
+        rl.close();
+        if (answer !== "y" && answer !== "yes") {
+          printStatusMessage(false, "Deletion aborted by user");
+          return;
+        }
+      }
+
+      await api.users.delete.mutate({ userId: user.id });
+      if (getGlobalOptions().json) {
+        printObject({ id: user.id, deleted: true });
+      } else {
+        printStatusMessage(true, `User ${user.email} deleted`);
+      }
+    } catch (error) {
+      printErrorMessageWithReason("Failed to delete user", error as object);
+      process.exitCode = 1;
     }
   });
 
@@ -136,6 +276,10 @@ bookmarksCmd
         basicData.push([
           "Summarization Status",
           debugInfo.summarizationStatus ?? "N/A",
+        ]);
+        basicData.push([
+          "Embedding Status",
+          debugInfo.embeddingStatus ?? "N/A",
         ]);
 
         if (debugInfo.linkInfo) {
@@ -257,6 +401,26 @@ bookmarksCmd
   });
 
 bookmarksCmd
+  .command("regenerate-embedding")
+  .description("trigger embedding regeneration for a bookmark")
+  .argument(
+    "<bookmarkId>",
+    "the id of the bookmark to regenerate embeddings for",
+  )
+  .action(async (bookmarkId) => {
+    const api = getAPIClient();
+    try {
+      await api.admin.adminRegenerateBookmarkEmbedding.mutate({ bookmarkId });
+      printStatusMessage(true, "Embedding regeneration queued successfully");
+    } catch (error) {
+      printErrorMessageWithReason(
+        "Failed to queue embedding regeneration",
+        error as object,
+      );
+    }
+  });
+
+bookmarksCmd
   .command("retag")
   .description("trigger AI retagging for a bookmark")
   .argument("<bookmarkId>", "the id of the bookmark to retag")
@@ -328,6 +492,12 @@ jobsCmd
           "-",
         ]);
         data.push([
+          "Embeddings",
+          stats.embeddingsStats.queued.toString(),
+          stats.embeddingsStats.pending.toString(),
+          stats.embeddingsStats.failed.toString(),
+        ]);
+        data.push([
           "Video Processing",
           stats.videoStats.queued.toString(),
           "-",
@@ -372,6 +542,11 @@ jobsCmd
     "filter by crawl status (success, failure, pending, all)",
   )
   .option("--run-inference", "also re-run inference after crawling", false)
+  .option(
+    "--modified-within <duration>",
+    modifiedWithinOptionDescription,
+    parseDuration,
+  )
   .action(async (opts) => {
     const api = getAPIClient();
     const status = opts.status as "success" | "failure" | "pending" | "all";
@@ -379,10 +554,11 @@ jobsCmd
       await api.admin.recrawlLinks.mutate({
         crawlStatus: status,
         runInference: opts.runInference,
+        modifiedWithinSeconds: opts.modifiedWithin,
       });
       printStatusMessage(
         true,
-        `Recrawl queued for all links with crawl status: ${status}`,
+        `Recrawl queued for links with crawl status ${status}${modifiedWithinStatusSuffix(opts.modifiedWithin)}`,
       );
     } catch (error) {
       printErrorMessageWithReason(
@@ -395,11 +571,21 @@ jobsCmd
 jobsCmd
   .command("reindex-all")
   .description("reindex all bookmarks for search")
-  .action(async () => {
+  .option(
+    "--modified-within <duration>",
+    modifiedWithinOptionDescription,
+    parseDuration,
+  )
+  .action(async (opts) => {
     const api = getAPIClient();
     try {
-      await api.admin.reindexAllBookmarks.mutate();
-      printStatusMessage(true, "Reindex queued for all bookmarks");
+      await api.admin.reindexAllBookmarks.mutate({
+        modifiedWithinSeconds: opts.modifiedWithin,
+      });
+      printStatusMessage(
+        true,
+        `Reindex queued for bookmarks${modifiedWithinStatusSuffix(opts.modifiedWithin)}`,
+      );
     } catch (error) {
       printErrorMessageWithReason(
         "Failed to queue mass reindex",
@@ -415,6 +601,11 @@ jobsCmd
     "--status <status>",
     "filter by tagging status (success, failure, pending, all)",
   )
+  .option(
+    "--modified-within <duration>",
+    modifiedWithinOptionDescription,
+    parseDuration,
+  )
   .action(async (opts) => {
     const api = getAPIClient();
     const status = opts.status as "success" | "failure" | "pending" | "all";
@@ -422,10 +613,11 @@ jobsCmd
       await api.admin.reRunInferenceOnAllBookmarks.mutate({
         type: "tag",
         status,
+        modifiedWithinSeconds: opts.modifiedWithin,
       });
       printStatusMessage(
         true,
-        `Retag queued for all bookmarks with tagging status: ${status}`,
+        `Retag queued for bookmarks with tagging status ${status}${modifiedWithinStatusSuffix(opts.modifiedWithin)}`,
       );
     } catch (error) {
       printErrorMessageWithReason(
@@ -442,6 +634,11 @@ jobsCmd
     "--status <status>",
     "filter by summarization status (success, failure, pending, all)",
   )
+  .option(
+    "--modified-within <duration>",
+    modifiedWithinOptionDescription,
+    parseDuration,
+  )
   .action(async (opts) => {
     const api = getAPIClient();
     const status = opts.status as "success" | "failure" | "pending" | "all";
@@ -449,10 +646,11 @@ jobsCmd
       await api.admin.reRunInferenceOnAllBookmarks.mutate({
         type: "summarize",
         status,
+        modifiedWithinSeconds: opts.modifiedWithin,
       });
       printStatusMessage(
         true,
-        `Resummarize queued for all bookmarks with summarization status: ${status}`,
+        `Resummarize queued for bookmarks with summarization status ${status}${modifiedWithinStatusSuffix(opts.modifiedWithin)}`,
       );
     } catch (error) {
       printErrorMessageWithReason(
@@ -463,13 +661,55 @@ jobsCmd
   });
 
 jobsCmd
+  .command("regenerate-embeddings")
+  .description("regenerate embeddings for all bookmarks matching a status")
+  .requiredOption(
+    "--status <status>",
+    "filter by embedding status (failure, pending, all)",
+  )
+  .option(
+    "--modified-within <duration>",
+    modifiedWithinOptionDescription,
+    parseDuration,
+  )
+  .action(async (opts) => {
+    const api = getAPIClient();
+    const status = opts.status as "failure" | "pending" | "all";
+    try {
+      await api.admin.regenerateAllBookmarkEmbeddings.mutate({
+        status,
+        modifiedWithinSeconds: opts.modifiedWithin,
+      });
+      printStatusMessage(
+        true,
+        `Embedding regeneration queued for bookmarks with embedding status ${status}${modifiedWithinStatusSuffix(opts.modifiedWithin)}`,
+      );
+    } catch (error) {
+      printErrorMessageWithReason(
+        "Failed to queue embedding regeneration",
+        error as object,
+      );
+    }
+  });
+
+jobsCmd
   .command("reprocess-assets")
   .description("reprocess all asset bookmarks in fix mode")
-  .action(async () => {
+  .option(
+    "--modified-within <duration>",
+    modifiedWithinOptionDescription,
+    parseDuration,
+  )
+  .action(async (opts) => {
     const api = getAPIClient();
     try {
-      await api.admin.reprocessAssetsFixMode.mutate();
-      printStatusMessage(true, "Asset reprocessing queued for all assets");
+      await api.admin.reprocessAssetsFixMode.mutate({
+        modifiedWithinSeconds: opts.modifiedWithin,
+      });
+      printStatusMessage(
+        true,
+        `Asset reprocessing queued for assets${modifiedWithinStatusSuffix(opts.modifiedWithin)}`,
+      );
     } catch (error) {
       printErrorMessageWithReason(
         "Failed to queue asset reprocessing",
@@ -479,3 +719,30 @@ jobsCmd
   });
 
 adminCmd.addCommand(jobsCmd);
+
+// --- Subscriptions subcommand (cloud only) ---
+
+if (process.env.KARAKEEP_CLOUD === "1") {
+  const subscriptionsCmd = new Command()
+    .name("subscriptions")
+    .description("admin subscription management commands");
+
+  subscriptionsCmd
+    .command("sync")
+    .description("force a Stripe sync for a specific user")
+    .argument("<userId>", "the id of the user to sync")
+    .action(async (userId) => {
+      const api = getAPIClient();
+      try {
+        await api.admin.forceStripeSync.mutate({ userId });
+        printStatusMessage(true, "Stripe sync completed successfully");
+      } catch (error) {
+        printErrorMessageWithReason(
+          "Failed to sync user with Stripe",
+          error as object,
+        );
+      }
+    });
+
+  adminCmd.addCommand(subscriptionsCmd);
+}

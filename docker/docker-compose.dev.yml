@@ -1,15 +1,37 @@
-version: "3.8"
 services:
   web:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     build:
       dockerfile: Dockerfile.dev
+    restart: unless-stopped
     volumes:
-      - data:/data
       - ..:/app
+      - node_modules:/app/node_modules
+      - pnpm-store:/pnpm
+      # By default, the data is stored in a docker volume called "data".
+      # If you want to mount a custom directory, change the volume mapping to:
+      # - /path/to/your/directory:/data
+      - data:${DATA_DIR:-/data}
     ports:
       - 3000:3000
-    env_file:
-      - .env  # Automatically load all variables from this file
+    environment:
+      # Override any of these via .env if you need custom paths or secrets
+
+      MEILI_ADDR: ${MEILI_ADDR:-http://meilisearch:7700}
+      BROWSER_WEB_URL: ${BROWSER_WEB_URL:-http://chrome:9222}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-super-secure-nextauth-secret}
+      # You almost never want to change the value of the DATA_DIR variable.
+      # If you want to mount a custom directory, change the volume mapping above instead.
+      DATA_DIR: ${DATA_DIR:-/data}
+      # OPENAI_API_KEY: ...
+
+      HOSTNAME: 0.0.0.0
+      # https://github.com/vercel/next.js/issues/71622
+      # https://github.com/vercel/next.js/issues/36774
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
     command:
       - pnpm
       - web
@@ -17,42 +39,63 @@ services:
     depends_on:
       prep:
         condition: service_completed_successfully
+      meilisearch:
+        condition: service_started
+      chrome:
+        condition: service_started
   chrome:
     image: karakeep/chrome-desktop:${KARAKEEP_CHROME_TAG:-local}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     build:
       context: ./chrome-desktop
       args:
+        UBUNTU_IMAGE: ${UBUNTU_IMAGE:-ubuntu:24.04}
         UBUNTU_APT_MIRROR: ${UBUNTU_APT_MIRROR:-http://mirrors.aliyun.com/ubuntu/}
+        GOOGLE_CHROME_VERSION: ${GOOGLE_CHROME_VERSION:-157.0.8103.38}
+        CHROME_DOWNLOAD_URL: ${CHROME_DOWNLOAD_URL:-}
+        CHROME_DOWNLOAD_PROXY: ${CHROME_DOWNLOAD_PROXY:-}
     restart: unless-stopped
+    init: true
+    ports:
+      - "${KARAKEEP_CHROME_DEBUG_PORT:-127.0.0.1:9222:9222}"
+      - "${KARAKEEP_CHROME_DESKTOP_PORT:-127.0.0.1:6080:6080}"
     shm_size: 1gb
     cap_add:
       - SYS_ADMIN
-    ports:
-      - 9222:9222
-      - 6080:6080
     environment:
       CHROME_REMOTE_DEBUGGING_PORT: 9222
       CHROME_PROXY_SERVER: ${CHROME_PROXY_SERVER:-}
       CHROME_PROXY_BYPASS_LIST: ${CHROME_PROXY_BYPASS_LIST:-}
       CHROME_PROXY_PAC_URL: ${CHROME_PROXY_PAC_URL:-}
       CHROME_DISABLE_SANDBOX: ${CHROME_DISABLE_SANDBOX:-false}
+      CHROME_EXTRA_ARGS: ${CHROME_EXTRA_ARGS:-}
   meilisearch:
-    image: getmeili/meilisearch:v1.37.0
+    image: getmeili/meilisearch:v1.55.0
+    restart: unless-stopped
+    environment:
+      MEILI_NO_ANALYTICS: "true"
+      MEILI_MASTER_KEY: ${MEILI_MASTER_KEY:-}
     volumes:
       - meilisearch:/meili_data
   workers:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     build:
       dockerfile: Dockerfile.dev
+    restart: unless-stopped
     volumes:
-      - data:/data
       - ..:/app
-    env_file:
-      - .env
+      - node_modules:/app/node_modules
+      - pnpm-store:/pnpm
+      - data:${DATA_DIR:-/data}
     working_dir: /app
     environment:
-      MEILI_ADDR: http://meilisearch:7700
-      BROWSER_WEB_URL: http://chrome:9222
-      DATA_DIR: /data
+      DATA_DIR: ${DATA_DIR:-/data}
+      MEILI_ADDR: ${MEILI_ADDR:-http://meilisearch:7700}
+      BROWSER_WEB_URL: ${BROWSER_WEB_URL:-http://chrome:9222}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-super-secure-nextauth-secret}
       # OPENAI_API_KEY: ...
     command:
       - pnpm
@@ -60,26 +103,32 @@ services:
     depends_on:
       prep:
         condition: service_completed_successfully
+      meilisearch:
+        condition: service_started
+      chrome:
+        condition: service_started
   prep:
     build:
       dockerfile: Dockerfile.dev
-    env_file:
-      - .env
+    restart: "no"
     working_dir: /app
     environment:
-      DATA_DIR: /data
+      DATA_DIR: ${DATA_DIR:-/data}
+      MEILI_ADDR: ${MEILI_ADDR:-http://meilisearch:7700}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-super-secure-nextauth-secret}
     volumes:
-      - data:/data
       - ..:/app
+      - node_modules:/app/node_modules
+      - pnpm-store:/pnpm
+      - data:${DATA_DIR:-/data}
     command:
-     - /bin/sh
-     - -c
-     - "pnpm install --frozen-lockfile && pnpm run db:migrate"
+      - /bin/sh
+      - -c
+      - mkdir -p "${DATA_DIR:-/data}" && pnpm install --frozen-lockfile && pnpm run db:migrate
 
 volumes:
   meilisearch:
   data:
-
-
-
-
+  node_modules:
+  pnpm-store:
